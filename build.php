@@ -4,11 +4,19 @@
 
 	$modules = array();
 	$jsmodules = array();
-	$filedata = file_get_contents('tg-all.js');
 
+	$library = file_get_contents('tg-all.js');
 	ob_start();
-	outputJS($filedata);
+	outputJS($library);
 	$distributable = ob_get_contents();
+	ob_end_clean();
+
+	chdir('../tests');
+
+	$tests = file_get_contents('tg-all.js');
+	ob_start();
+	outputJS($tests);
+	$test_script = ob_get_contents();
 	ob_end_clean();
 		
 	chdir('..');
@@ -18,6 +26,8 @@
 
 	$minified = minify($distributable);
 	file_put_contents('dist/tg-all-min.js', $minified);
+
+	file_put_contents('dist/tests.js', $test_script);
 
 	print "done.\n";
 
