@@ -19,3 +19,6 @@ Or minified:
 ## Use it
 
 Documentation pending.
+
+---
+You can refer to [the tests](test.html) to see how it works in the meantime.
