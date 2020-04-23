@@ -5,7 +5,7 @@
 	}
 
 	var stack = [];
-	var pathstack = ['./'];
+	var pathstack = ['.'];
 
 	tgmodule = {
 		'start': function(name) {

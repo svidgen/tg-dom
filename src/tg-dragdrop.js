@@ -1,6 +1,7 @@
 require('tg-upon.js');
 require('tg-namespace.js');
 require('tg-dom.js');
+require('tg-mouse-coords.js');
 
 upon('Bind', function () {
 	TG.DragDrop = TG.DragDrop || {

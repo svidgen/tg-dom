@@ -12,7 +12,7 @@ TG.confirm = function(s) {
 	if (c.replace(/^\s+/, '').replace(/\s+$/, '').toUpperCase() == s) {
 		return true;
 	} else {
-		alert("No match!");
+		alert({message: "No match!"});
 		return false;
 	}
 } // TG.confirm()

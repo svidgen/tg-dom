@@ -1,5 +1,10 @@
 <?php
 
+	$options = [
+		'quick::'
+	];
+	$cli_args = getopt(null, $options);
+
 	chdir('src');
 
 	$modules = array();
@@ -24,8 +29,10 @@
 	$distributable = file_get_contents('src/tg-require.js') . "\n" . $distributable;
 	file_put_contents('dist/tg-all.js', $distributable);
 
-	$minified = minify($distributable);
-	file_put_contents('dist/tg-all-min.js', $minified);
+	if (!isset($cli_args['quick'])) {
+		$minified = minify($distributable);
+		file_put_contents('dist/tg-all-min.js', $minified);
+	}
 
 	file_put_contents('dist/tests.js', $test_script);
 

@@ -269,21 +269,21 @@
 		assert.strictEqual(spans[0], galaxy, "the inserted node IS the created and assigned node");
 	});
 
-	QUnit.test("Bind() attaches identified nodes under target node this `this`", function(assert) {
-		var person;
+	QUnit.test("Bind() attaches identified nodes under target node `this`", function(assert) {
+		var found_person;
 		var found = false;
 
 		var C = function() {
 			found = true;
-			person = this.person;
+			found_person = this.person;
 		};
 
-		fixture.innerHTML = "<div class='c'>Hello <span data-id='person'>Person</span>.</div>";
-		Bind(C, '.c');
-		
+		fixture.innerHTML = "<div class='class-c'>Hello <span data-id='person'>Person</span>.</div>";
+		Bind(C, '.class-c');
+
 		assert.ok(found, "the target node was bound");
-		assert.notStrictEqual(typeof(person), 'undefined', "the person attribute was found");
-		assert.strictEqual(person.innerHTML, 'Person', "the person attribute contained the correct markup");
+		assert.notStrictEqual(typeof(found_person), 'undefined', "the person attribute was found");
+		assert.strictEqual(found_person.innerHTML, 'Person', "the person attribute contained the correct markup");
 
 		var CNodes = getNodes(fixture, C);
 		var cnode = CNodes[0];
@@ -297,11 +297,14 @@
 	QUnit.test("Bind() substitutes nodes from the target in place of the identified templateMarkup nodes", function(assert) {
 
 		var C = function() {}; 
-		C.templateMarkup = "Hello <span data-id='world'>World</span>!";
-		fixture.innerHTML = "<div class='c'><span data-id='world'>Werrrld</span></div>";
-		Bind(C, 'c');
+		C.templateMarkup = "Hi there <span data-id='world'>World</span>!";
+		fixture.innerHTML = "<div class='werld-c'><span data-id='world'>Werrrld</span></div>";
+		Bind(C, '.werld-c');
 
-		assert.ok(fixture.innerHTML.match(/>Werrrld</), "the updated marup has the new Werrrld node in it");
+		console.log('fixture html: ' + fixture.innerHTML);
+
+		assert.ok(fixture.innerHTML.match(/>Hello</), "the updated markup has Hello in it");
+		assert.ok(fixture.innerHTML.match(/>Werrrld</), "the updated markup has the new Werrrld node in it");
 
 	});
 
@@ -312,8 +315,7 @@
 		fixture.innerHTML = "<div class='c' world='Guy'></div>";
 		Bind(C, '.c');
 
-		assert.ok(fixture.firstChild.innerHTML.match(/Guy/), "the updated markup has 'Guy' in the right spot");
-
+		assert.ok(fixture.firstChild.innerHTML.match(/Guy/), "the updated markup has attr-arg ('Guy') injected into the doc");
 	});
 
 	QUnit.test("Bind() targets an ID'd nodes innerHTML when data-property='innerHTML' is set", function(assert) {
