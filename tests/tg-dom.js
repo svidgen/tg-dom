@@ -301,9 +301,7 @@
 		fixture.innerHTML = "<div class='werld-c'><span data-id='world'>Werrrld</span></div>";
 		Bind(C, '.werld-c');
 
-		console.log('fixture html: ' + fixture.innerHTML);
-
-		assert.ok(fixture.innerHTML.match(/>Hello</), "the updated markup has Hello in it");
+		assert.ok(fixture.innerHTML.match(/>Hi there/), "the updated markup has Hello in it");
 		assert.ok(fixture.innerHTML.match(/>Werrrld</), "the updated markup has the new Werrrld node in it");
 
 	});

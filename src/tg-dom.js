@@ -76,26 +76,16 @@ if (!this.Bind) {
 	}; // Apply()
 
 	Bind.ApplyTemplate = function (constructor, node) {
-		var template = constructor.template
-			|| constructor.markup
-			|| constructor.templateMarkup
-		;
+		var template = Bind.templateFor(constructor)
 		if (template) {
 			node.innerHTML = template;
 		}
 	}; // ApplyTemplate()
 
 	Bind.ApplyClone = function(constructor, node) {
-		console.log('binding ', constructor, ' to ', node);
-
-		// makes sense, but what problem did this line solve?
-		if (
-			constructor.template == null
-			&& constructor.markup == null
-			&& constructor.templateMarkup == null
-		) { return; }
-
-		console.log('template found', constructor.template);
+		// makes sense, but what problem did this conditional solve?
+		// ... optimization?
+		if (!Bind.templateFor(constructor)) { return; }
 
 		while (node.firstChild) {
 			node.removeChild(node.firstChild);
@@ -174,10 +164,7 @@ if (!this.Bind) {
 
 	Bind.bindingQueryFromConstructor = function(constructor) {
 		var sample = document.createElement('div');
-		sample.innerHTML = constructor.template
-			|| constructor.markup
-			|| constructor.templateMarkup
-		;
+		sample.innerHTML = Bind.templateFor(constructor);
 		for (var i = 0; i < sample.childNodes.length; i++) {
 			var binding = Bind.bindingQueryFromNode(sample.childNodes[i]);
 			constructor.template = sample.childNodes[i].innerHTML;
@@ -472,14 +459,28 @@ if (!this.Bind) {
 		) {
 			for (var i = 0; i < node.attributes.length; i++) {
 				var a = node.attributes[i];
-				console.log('attaching ' + a.name + ': ' + a.value);
-				// if (!o[a.name]) {
+
+				// this needs to be thought through and tested more. it may make
+				// sense to *always* add the property if it was given on a tag
+				// attribute like this.
+				if (!o[a.name]) {
 					o[a.name] = a.value;
-				// }
+				}
 			}
 		}
 		o.__attributes_imported = true;
 	}; // importAttributes()
+
+
+	Bind.templateFor = function(constructor) {
+		return [
+			'template',
+			'markup',
+			'templateMarkup'
+		].reduce(function(first_found, property) {
+			return first_found || constructor[property];
+		}, null);
+	}; // templateFor
 
 
 	Bind.importParameters = function (constructor, o, node) {
@@ -498,7 +499,7 @@ if (!this.Bind) {
 				o.parameters.push(n);
 			}
 
-			if (constructor.template != null) {
+			if (Bind.templateFor(constructor) != null) {
 				o.__holdingDiv = document.createElement('div');
 				o.__holdingDiv.style.display = 'none';
 				document.body.appendChild(o.__holdingDiv);
@@ -521,7 +522,7 @@ if (!this.Bind) {
 		}
 		var nodes = o.parameters;
 		for (var i = nodes.length - 1; i >= 0; i--) {
-			var id = nodes[i]['data-id'];
+			var id = nodes[i]['data-id'] || nodes[i].getAttribute('data-id');
 			if (id) {
 				// Bind.copyDefaultAttributes(o[id], nodes[i]);
 				o[id] = nodes[i];
