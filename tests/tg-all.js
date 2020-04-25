@@ -4,5 +4,3 @@ require('tg-api.js');
 require('tg-dragdrop.js');
 require('tg-test.js');
 require('tg-ui.js');
-require('tg-integration.js');
-require('tg-script-processing.js');
