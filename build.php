@@ -7,11 +7,10 @@
 
 	chdir('src');
 
-	$modules = array();
-	$jsmodules = array();
-
 	$library = file_get_contents('tg-all.js');
 	ob_start();
+	$modules = array();
+	$jsmodules = array();
 	outputJS($library);
 	$distributable = ob_get_contents();
 	ob_end_clean();
@@ -20,10 +19,12 @@
 
 	$tests = file_get_contents('tg-all.js');
 	ob_start();
+	$modules = array();
+	$jsmodules = array();
 	outputJS($tests);
 	$test_script = ob_get_contents();
 	ob_end_clean();
-		
+	
 	chdir('..');
 
 	$distributable = file_get_contents('src/tg-require.js') . "\n" . $distributable;
@@ -60,6 +61,7 @@
 	}
 
 	function writeJSInclude($modname, $path) {
+		global $jsmodules;
 		$fullpath = modpath("{$path}/{$modname}");
 		$newpath = dirname($fullpath);
 		if (!isset($jsmodules[$fullpath])) {
@@ -124,6 +126,7 @@
 	}
 
 	function getModule($src) {
+		global $modules;
 		$realsrc = realpath('./' . $src);
 		include_once($realsrc);	
 		$module = @$modules[$realsrc];

@@ -1,3 +1,5 @@
+var Box = require('tg-box.js');
+
 TG.NodeBox = function(n) {
 	this.x = n.offsetLeft;
 	this.y = n.offsetTop;
@@ -24,6 +26,6 @@ TG.NodeBox = function(n) {
 	this.marginTop = parseInt(style.marginTop.replace(/[^0-9]/g, '') || '0');
 	this.marginBottom = parseInt(style.marginBottom.replace(/[^0-9]/g, '') || '0');
 }; // getCoordinates()
-TG.NodeBox.prototype = new TG.Box();
+TG.NodeBox.prototype = new Box();
 
 module.exports = TG.NodeBox;
