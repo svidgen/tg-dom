@@ -452,6 +452,16 @@
 		assert.ok(fixture.innerHTML.match(/inner html/), "t:inner was bound");
 	});
 
+	QUnit.test("DomClass gracefully ignores non-ID'd params", function(assert) {
+		var Widget = DomClass("<t:widget><b data-id='x'>default</b></t:widget>");
+
+		// note the widget has spaces / text nodes in it
+		fixture.innerHTML = "<t:widget> <b data-id='x'>value</b> </t:widget>";
+		Bind(fixture);
+
+		assert.ok(true, "things didn't blow up!");
+	});
+
 	// QUnit.test("Bind() supports 3 layers of DomClass nesting", function(assert) {
 	// 	DomClass("<t:nest-one>one html<div data-id='inner'></div></t:nest-one>");
 	// 	DomClass("<t:nest-two>two html</t:nest-two>");

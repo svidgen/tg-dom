@@ -6,6 +6,7 @@ require('tg-types.js');
 require('tg-css.js');
 require('tg-box.js');
 require('tg-nodebox.js');
+require('tg-observe.js');
 
 var Profiler = require('tg-profiler.js');
 
@@ -524,9 +525,13 @@ if (!this.Bind) {
 		}
 		var nodes = o.parameters;
 		for (var i = nodes.length - 1; i >= 0; i--) {
-			var id = nodes[i]['data-id'] || nodes[i].getAttribute('data-id');
+			var id = nodes[i]['data-id'];
+
+			if (!id && typeof(nodes[i]['getAttribute']) == 'function') {
+				id = nodes[i].getAttribute('data-id');
+			}
+
 			if (id) {
-				// Bind.copyDefaultAttributes(o[id], nodes[i]);
 				o[id] = nodes[i];
 			}
 		}

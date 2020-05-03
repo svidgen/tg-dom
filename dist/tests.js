@@ -457,6 +457,16 @@ tgmodule.d('./','./tg-dom.js',function(module){
 		assert.ok(fixture.innerHTML.match(/inner html/), "t:inner was bound");
 	});
 
+	QUnit.test("DomClass gracefully ignores non-ID'd params", function(assert) {
+		var Widget = DomClass("<t:widget><b data-id='x'>default</b></t:widget>");
+
+		// note the widget has spaces / text nodes in it
+		fixture.innerHTML = "<t:widget> <b data-id='x'>value</b> </t:widget>";
+		Bind(fixture);
+
+		assert.ok(true, "things didn't blow up!");
+	});
+
 	// QUnit.test("Bind() supports 3 layers of DomClass nesting", function(assert) {
 	// 	DomClass("<t:nest-one>one html<div data-id='inner'></div></t:nest-one>");
 	// 	DomClass("<t:nest-two>two html</t:nest-two>");
@@ -1182,6 +1192,40 @@ tgmodule.d('./','./tg-ui.js',function(module){
 
 });
 
+tgmodule.d('./','./tg-observe.js',function(module){
+(function() {
+	QUnit.module('utils');
+
+	QUnit.test("observe() fires not callback when no change", function(assert) {
+		var o = {'abc': 123};
+		var observed = false;
+		TG.observe(o, ['abc'], function() { observed = true; });
+		assert.ok(!observed, "observe callback was not made");
+	});
+
+	QUnit.test("observe() fires callback when property changes", function(assert) {
+		var o = {'abc': 123};
+		var observed = false;
+		TG.observe(o, ['abc'], function() { observed = true; });
+		o.abc = 456;
+		assert.ok(observed, "observe callback was made");
+	});
+
+	QUnit.test("observe() callback gets object, prop, val", function(assert) {
+		var o = {'abc': 123};
+		var observed_data = null;
+		TG.observe(o, ['abc'], function(o, name, value) {
+			observed_data = {o: o, name: name, value: value};
+		});
+		o.abc = 456;
+		assert.equal(observed_data.o, o, "gets object as first arg");
+		assert.equal(observed_data.name, 'abc', "gets prop name as 2nd arg");
+		assert.equal(observed_data.value, 456, "gets prop value as 3rd arg");
+	});
+
+})();
+});
+
 tgmodule.setpath('.');
 require('tg-upon.js');
 require('tg-dom.js');
@@ -1189,3 +1233,4 @@ require('tg-api.js');
 require('tg-dragdrop.js');
 require('tg-test.js');
 require('tg-ui.js');
+require('tg-observe.js');

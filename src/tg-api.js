@@ -43,6 +43,13 @@ TG.stringify = function (o, depth, stringify_instance, make_refs) {
 		return undefined;
 	}
 
+	var omissions = {
+		__stringify_instance: 1,
+		__parameters_imported: 1,
+		__attributes_imported: 1,
+		__AlreadyBound: 1,
+	};
+
 	var instance = stringify_instance || Math.random();
 	if (o && o.__stringify_instance && o.__stringify_instance == instance) {
 		delete o.__stringify_instance;
@@ -76,55 +83,15 @@ TG.stringify = function (o, depth, stringify_instance, make_refs) {
 		);
 	} else if (typeof(o) === 'object') {
 		var _rv = [];
-		var props_written = 0;
-
 		for (var i in o) {
-			var omissions = {};
-			omissions.__stringify_instance = 1;
-			omissions.__parameters_imported = 1;
-			omissions.__attributes_imported = 1;
-			omissions.__AlreadyBound = 1;
 			if (!omissions[i] && o.hasOwnProperty(i) && !i.match(/__TG/)) {
 				var v = TG.stringify(o[i], d - 1, instance, make_refs);
 				var k = TG.stringify(i, d - 1, instance, make_refs);
 				if (k && typeof(v) == 'string') {
-					props_written += 1;
 					_rv.push(k + ':' + v);
 				}
 			}
-
-			/*
-			if (i == 'childNodes' && o[i].length > 0) {
-				var v = TG.stringify(
-					Array.prototype.slice.apply(o[i]),
-					d - 1,
-					instance,
-					make_refs
-				);
-				_rv.push(i + ':' + v);
-			}
-			*/
-
-			/*
-			if (i == 'innerHTML' && o.innerHTML.length > 0) {
-				_rv.push(i + ':' + TG.stringify(o.innerHTML));
-			}
-			*/
 		}
-
-		/*
-		if (props_written == 0 && o.childNodes) {
-			// _rv.push('"innerHTML":' + TG.stringify(o.innerHTML));
-			var v = TG.stringify(
-				Array.prototype.slice.apply(o.childNodes),
-				d - 1,
-				instance,
-				make_refs
-			);
-			_rv.push('"childNodes":' + v);
-		}
-		*/
-
 		rv = '{' + _rv.join(',') + '}';
 	} else if (typeof(o) === 'number') {
 		rv = String(o);
