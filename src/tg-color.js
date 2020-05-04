@@ -1,5 +1,4 @@
-Color = function Color(r, g, b) {
-
+TG.Color = function Color(r, g, b) {
 	this.loadHex = function(c) {
 		// strip off hash symbol, if present
 		var c = c.replace("#", "");
@@ -265,3 +264,5 @@ Color = function Color(r, g, b) {
 	}
 
 }; // Color
+
+module.exports = TG.Color;

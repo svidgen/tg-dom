@@ -5,7 +5,7 @@
 	}
 
 	var stack = [];
-	var pathstack = ['./'];
+	var pathstack = ['.'];
 
 	tgmodule = {
 		'start': function(name) {
@@ -78,6 +78,7 @@ upon = function(test, fn) {
 
 });
 
+
 tgmodule.d('./','./tg-namespace.js',function(module){
 TG = this.TG || {};
 TG.API = TG.API || {};
@@ -85,91 +86,34 @@ TG.Data = TG.Data || {};
 TG.UI = TG.UI || {};
 });
 
-tgmodule.d('./','./tg-upon.js',function(module){
+
+
+tgmodule.d('./','./tg-observe.js',function(module){
+require('tg-namespace.js');
+
+TG.observe = function(o, props, f, enumerable) {
+	var enumerable = enumerable === undefined ? true : enumerable;
+	props.forEach(function(p) {
+		var innerValue = o[p];
+		Object.defineProperty(o, p, {
+			set: function(v) {
+				innerValue = v;
+				f(o, p, v);
+			},
+			get: function() {
+				return innerValue;
+			},
+			enumerable: enumerable
+		});
+	});
+};
+module.exports = TG.observe;
 });
 
-tgmodule.d('./','./tg-dom.js',function(module){
-require('tg-namespace.js');
+
+tgmodule.d('./','./tg-events.js',function(module){
+require('tg-observe.js');
 require('tg-upon.js');
-
-this.console = this.console || {
-	log_items: [],
-	log: function () {
-		for (var i = 0; i < arguments.length; i++) {
-			this.log_items.push(arguments[i]);
-		}
-	}
-} // console
-
-
-this.Element = this.Element || function () { return true; };
-this.Node = this.window.Node || this.Element;
-
-
-this.getTypeId = function(t) {
-	var id = t;
-	if (typeof(t) == 'function') {
-		var bound = Bind.getBindings(t);
-		if (bound.length > 0) {
-			id = bound[0];
-		} else {
-			id = t.name || t.toString();
-		}
-	}
-	return id;
-}; // getTypeId()
-
-
-this.setType = function (o, constructor) {
-	o.__types = o.__types || {};
-	var t = this.getTypeId(constructor);
-	if (t && o.__types[t] == null) {
-		var v = 0;
-		for (var i in o.__types) {
-			v = Math.max(v, o.__types[i]);
-		}
-		v += 1;
-		o.__types[t] = v;
-	}
-}; // setType()
-this.registerType = setType;
-
-
-this.isa = function (o, constructor) {
-	var oT = typeof(o);
-	var cT = typeof(constructor);
-
-	if (oT === 'string') {
-		return constructor === String;
-	}
-	if (oT === 'number') {
-		return constructor === Number;
-	}
-	if (o === undefined || o === null) {
-		return cT === oT;
-	}
-	if (oT === 'boolean') {
-		return oT == cT;
-	}
-
-	if (cT === 'string' || cT === 'function') {
-		o.__types = o.__types || {};
-		if (constructor && o.__types[this.getTypeId(constructor)]) {
-			return true;
- 		}
-	}
-
-	if (
-		constructor === Element
-		|| constructor === Node
-		|| constructor === NodeList
-		|| cT  === 'function'
-	) {
-		return o instanceof constructor;
-	}
-	return o === constructor;
-}; // isa()
-
 
 TG.Event = function (singleFire, o, a) {
 
@@ -194,8 +138,9 @@ TG.Event = function (singleFire, o, a) {
 	this.and = this.then;
 
 	this.fire = function (arg1, arg2, etc) {
-	    this.args = arguments;
-	    this.fireWithInterception();
+		this.args = arguments;
+		this.fireWithInterception();
+		this.fired += 1;
 		return this;
 	}; // fire()
 
@@ -224,6 +169,7 @@ TG.Event = function (singleFire, o, a) {
 
 		while (this.subscribers.length > 0) {
 			var fn = this.subscribers.pop();
+			if (typeof(fn) !== 'function') continue;
 			fn.apply(null, this.args);
 			firedFns.push(fn);
 		}
@@ -275,16 +221,13 @@ this.on = function (o, a, f, sf) {
 			fire: function () {
 				this.fired++;
 				if (this.fired >= this.count) {
-					f();
-					// what was this for? :
-					// TG.Event.registries.splice(TG.Event.registries.indexOf(this), 1);
+					on(this, 'complete').fire();
 				}
 			},
 
 			// for debugging and/or monitoring
 			objects: _o,
 			eventName: eventName
-
 		};
 
 		if (_o.length > 0) {
@@ -296,7 +239,7 @@ this.on = function (o, a, f, sf) {
 		}
 
 		TG.Event.registries.push(registry);
-		return registry;
+		return on(registry, 'complete');
 	}
 
 	if (typeof (o[eventName]) === 'undefined') {
@@ -313,14 +256,17 @@ this.on = function (o, a, f, sf) {
 };
 // on()
 
-
 this.onready = function (o, f) {
 	return on(o, 'ready', f, true);
 };
 // onready()
 
 
-TG.StringSet = function(v) {
+});
+
+
+tgmodule.d('./','./tg-set.js',function(module){
+TG.Set = function(v) {
 	var _d = {};
 
 	this.add = function(v) {
@@ -348,66 +294,246 @@ TG.StringSet = function(v) {
 	if (v) {
 		this.add(v);
 	}
-}; // StringSet
+}; // Set
+
+module.exports = TG.Set;
+});
 
 
+tgmodule.d('./','./tg-types.js',function(module){
+Element = window.Element || function () { return true; };
+Node = window.Node || window.Element;
+
+getTypeId = function(t) {
+	var id = t;
+	if (typeof(t) == 'function') {
+		var bound = Bind.getBindings(t);
+		if (bound.length > 0) {
+			id = bound[0];
+		} else {
+			id = t.name || t.toString();
+		}
+	}
+	return id;
+}; // getTypeId()
+
+setType = function (o, constructor) {
+	o.__types = o.__types || {};
+	var t = this.getTypeId(constructor);
+	if (t && o.__types[t] == null) {
+		var v = 0;
+		for (var i in o.__types) {
+			v = Math.max(v, o.__types[i]);
+		}
+		v += 1;
+		o.__types[t] = v;
+	}
+}; // setType()
+registerType = setType;
+
+
+isa = function (o, constructor) {
+	var oT = typeof(o);
+	var cT = typeof(constructor);
+
+	if (oT === 'string') {
+		return constructor === String;
+	}
+	if (oT === 'number') {
+		return constructor === Number;
+	}
+	if (o === undefined || o === null) {
+		return cT === oT;
+	}
+	if (oT === 'boolean') {
+		return oT == cT;
+	}
+
+	if (cT === 'string' || cT === 'function') {
+		o.__types = o.__types || {};
+		if (constructor && o.__types[this.getTypeId(constructor)]) {
+			return true;
+ 		}
+	}
+
+	if (
+		constructor === Element
+		|| constructor === Node
+		|| constructor === NodeList
+		|| cT  === 'function'
+	) {
+		return o instanceof constructor;
+	}
+	return o === constructor;
+}; // isa()
+
+
+module.exports = {
+	isa: isa,
+	getTypeId: getTypeId,
+	setType: setType,
+	registerType: registerType
+};
+});
+
+
+tgmodule.d('./','./tg-css.js',function(module){
 TG.getClassnames = function(node) {
-	return (new TG.StringSet(node.className.split(/\s+/))).toArray();
+	return (new TG.Set(node.className.split(/\s+/))).toArray();
 }; // getClassnames()
 
-
 TG.addClassname = function(node, classname) {
-	var classes = new TG.StringSet(node.className.split(/\s+/));
+	var classes = new TG.Set(node.className.split(/\s+/));
 	classes.add(classname);
 	node.className = classes.toArray().join(' ');
 }; // addClassname()
 
-
 TG.removeClassname = function(node, classname) {
-	var classes = new TG.StringSet(node.className.split(/\s+/));
+	var classes = new TG.Set(node.className.split(/\s+/));
 	classes.remove(classname);
 	node.className = classes.toArray().join(' ');
 }; // removeClassname()
 
-
-this.currentStyle = function(node, key) {
+TG.currentStyle = function(node, key) {
 	return node.currentStyle ? node.currentStyle[key]
 		: document.defaultView.getComputedStyle(node, '')[key];
 }; // currentStyle()
 
-
-TG.CopyStyle = function(f, t, asComputed) {
+TG.copyStyle = function(f, t, asComputed) {
 	if (asComputed instanceof Array) {
 		for (var i = 0; i < asComputed.length; i++) {
-			t.style[asComputed[i]] = currentStyle(f, asComputed[i]);
+			t.style[asComputed[i]] = TG.currentStyle(f, asComputed[i]);
 		}
 	} else {
 		for (var i in f.style) {
-			t.style[i] = asComputed ? currentStyle(f, i) : f.style[i];
+			t.style[i] = asComputed ? TG.currentStyle(f, i) : f.style[i];
 		}
 	}
 	var c = TG.getClassnames(f);
 	for (var i = 0; i < c.length; i++) {
 		TG.addClassname(t, c[i]);
 	}
-}; // getStyles()
+}; // copyStyle()
+
+
+module.exports = {
+	getClassname: TG.getClassname,
+	addClassname: TG.addClassname,
+	remoeClassname: TG.removeClassname,
+	copyStyle: TG.copyStyle,
+	currentStyle: TG.currentStyle
+};
+});
+
+
+tgmodule.d('./','./tg-profiler.js',function(module){
+TGProfiler = new function() {
+
+	var profiles = {}
+
+	this.start = function(name) {
+		return new Profile(name);
+	};
+
+	this.watch = function(name, f) {
+		return function() {
+			var profile = new Profile(name);
+			var rv = f.apply(this, Array.prototype.slice.call(arguments, 0));
+			profile.stop();
+			return rv;	
+		}
+	};
+
+	this.append = function(profile) {
+		profiles[profile.name] = profiles[profile.name] || [];
+		profiles[profile.name].push(profile);
+	};
+
+	this.getSummary = function() {
+		var rv = {};
+		for (var name in profiles) {
+			_profiles = profiles[name];
+			rv[_profiles[0].name] = {
+				count: _profiles.length,
+				time: _profiles.reduce(function(sum, profile) {
+					return sum + profile.getTime() ;
+				}, 0)
+			};
+		}
+		return rv;
+	};
+
+};
+
+var Profile = function(name) {
+
+	var start, end;
+
+	this.init = function() {
+		this.name = name;
+		TGProfiler.append(this);
+		start = new Date();
+	};
+
+	this.stop = function() {
+		end = new Date();
+	};
+
+	this.getTime = function() {
+		if (end) {
+			return end.getTime() - start.getTime();
+		} else {
+			return (new Date()).getTime() - start.getTime();
+		}
+	};
+
+	this.init();
+}
+
+module.exports = TGProfiler;
+
+
+});
+
+tgmodule.d('./','./tg-dom.js',function(module){
+require('tg-namespace.js');
+require('tg-upon.js');
+require('tg-events.js');
+require('tg-set.js');
+require('tg-types.js');
+require('tg-css.js');
+
+var Profiler = require('tg-profiler.js');
+
+
+this.console = this.console || {
+	log_items: [],
+	log: function () {
+		for (var i = 0; i < arguments.length; i++) {
+			this.log_items.push(arguments[i]);
+		}
+	}
+} // console
 
 
 if (!this.Bind) {
 
 	this.DomClass = function(template, constructor) {
-		constructor = constructor || function() {};
+		constructor  = constructor || function NullConstructor() {}
+		var name = constructor.name || "<unknown>";
+		constructor = Profiler.watch(name, constructor);
 		constructor.template = template;
 		Bind(constructor);
-		var f = function(arg) {
+		var f = Profiler.watch("DomClass " + name, function (arg) {
 			return New(constructor, arg);
-		}; 
+		});
 		f.apply = function(_t, _a) { return constructor.apply(_t, _a); };
 		f.call = function() {
 			var _t = Array.prototype.shift.apply(arguments);
 			return constructor.call(_t, arguments);
 		};
 		f.__constructor = constructor;
+		f.name = constructor.name;
 		return f;
 	}; // DomClass()
 
@@ -438,25 +564,27 @@ if (!this.Bind) {
 		for (var i = 0; i < nodes.length; i++) {
 			var n = nodes[i];
 			if (!n.__AlreadyBound) {
-				Bind.importParameters(n);
+				Bind.importParameters(constructor, n);
 				Bind.ApplyClone(constructor, n);
 				Bind.ApplyConstructor(constructor, n);
+				Bind.importAttributes(n);
 				n.__AlreadyBound = true;
 			}
 		}
 	}; // Apply()
 
 	Bind.ApplyTemplate = function (constructor, node) {
-		var template = constructor.template
-			|| constructor.markup
-			|| constructor.templateMarkup
-		;
+		var template = Bind.templateFor(constructor)
 		if (template) {
 			node.innerHTML = template;
 		}
 	}; // ApplyTemplate()
 
 	Bind.ApplyClone = function(constructor, node) {
+		// makes sense, but what problem did this conditional solve?
+		// ... optimization?
+		if (!Bind.templateFor(constructor)) { return; }
+
 		while (node.firstChild) {
 			node.removeChild(node.firstChild);
 		}
@@ -501,7 +629,7 @@ if (!this.Bind) {
 	Bind.Classes = {};
 
 
-	document.createElement = function (tag, o) {
+	document.createElement = function(tag, o) {
 		var constructor = Bind.getConstructor(tag);
 		if (constructor) {
 			var node = Bind.getClone(constructor);
@@ -534,10 +662,7 @@ if (!this.Bind) {
 
 	Bind.bindingQueryFromConstructor = function(constructor) {
 		var sample = document.createElement('div');
-		sample.innerHTML = constructor.template
-			|| constructor.markup
-			|| constructor.templateMarkup
-		;
+		sample.innerHTML = Bind.templateFor(constructor);
 		for (var i = 0; i < sample.childNodes.length; i++) {
 			var binding = Bind.bindingQueryFromNode(sample.childNodes[i]);
 			constructor.template = sample.childNodes[i].innerHTML;
@@ -564,7 +689,7 @@ if (!this.Bind) {
 	}; // getConstructor()
 
 
-	Bind.getBindings = function (constructor) {
+	Bind.getBindings = function(constructor) {
 		var rv = [];
 		for (var i in Bind.Classes) {
 			if (Bind.Classes[i] === constructor
@@ -573,18 +698,13 @@ if (!this.Bind) {
 				rv.push(i);
 			}
 		}
+
 		return rv;
 	}; // getBindings()
 
 	Bind.makeNodeFrom = function(o, collectionType) {
 		if (isa(o, Node) || isa(o, Element)) {
-			// if (o.nodeType == 3) {
-			// 	// to satisfy IE's inability to work with pre-existing TextNodes ... 
-			// 	return document.createTextNode(o.data);
-			// } else {
-			// 	if (o.parentNode) o.parentNode.removeChild(o);
-				return o;
-			// }
+			return o;
 		}
 
 		if (isa(o, Array)) {
@@ -640,7 +760,8 @@ if (!this.Bind) {
 			Bind.addArrayAsChildren(node, rv);
 		};
 
-		rv.loadFromDOM = function() {
+		rv.loadFromDOM = function(newNode) {
+			if (newNode) node = newNode;
 			var childNodes = [];
 
 			var childType = node['data-collection']
@@ -742,11 +863,14 @@ if (!this.Bind) {
 			default_property = 'value';
 		}
 		var target_property = node.getAttribute('data-property');
+		var render_async = node.getAttribute('data-render-async') != null;
 		var last_set = target_property;
 		var childCollection = Bind.childNodeArray(node);
 
 		obj.__dom = obj.__dom || {};
-		obj.__dom[id] = node;
+		Object.defineProperty(obj.__dom, id, {
+			get: function() { return node; }
+		});
 
 		Object.defineProperty(obj, '__dom', {
 			enumerable: false
@@ -778,9 +902,6 @@ if (!this.Bind) {
 					if (isa(vv, Array)) {
 						Bind.addArrayAsChildren(node, vv);
 						last_set = 'children';
-					} else if (target_property) {
-						node[target_property] = vv;
-						last_set = target_property;
 					} else if (isa(vv, Node)) {
 						if (node.parentNode) node.parentNode.replaceChild(vv, node);
 						node = vv;
@@ -790,6 +911,9 @@ if (!this.Bind) {
 							node[vv_k] = vv[vv_k];
 						}
 						last_set = null;
+					} else if (target_property) {
+						node[target_property] = vv;
+						last_set = target_property;
 					} else {
 						node[default_property] = vv;
 						last_set = default_property;
@@ -803,7 +927,7 @@ if (!this.Bind) {
 				}
 
 				setThisValue(v.valueOf());
-				childCollection.loadFromDOM();
+				childCollection.loadFromDOM(node);
 			},
 			enumerable: enumerable,
 			configurable: false
@@ -833,6 +957,10 @@ if (!this.Bind) {
 		) {
 			for (var i = 0; i < node.attributes.length; i++) {
 				var a = node.attributes[i];
+
+				// this needs to be thought through and tested more. it may make
+				// sense to *always* add the property if it was given on a tag
+				// attribute like this.
 				if (!o[a.name]) {
 					o[a.name] = a.value;
 				}
@@ -842,7 +970,18 @@ if (!this.Bind) {
 	}; // importAttributes()
 
 
-	Bind.importParameters = function (o, node) {
+	Bind.templateFor = function(constructor) {
+		return [
+			'template',
+			'markup',
+			'templateMarkup'
+		].reduce(function(first_found, property) {
+			return first_found || constructor[property];
+		}, null);
+	}; // templateFor
+
+
+	Bind.importParameters = function (constructor, o, node) {
 		var node = node || o;
 		if (!o.__parameters_imported && node.childNodes) {
 			o.parameters = [];
@@ -854,32 +993,39 @@ if (!this.Bind) {
 					var _n = document.createElement('span');
 					_n.innerHTML = n.data;
 					n = _n;
-				} else {
-					Bind.importAttributes(n);
 				}
 				o.parameters.push(n);
 			}
 
-			o.__holdingDiv = document.createElement('div');
-			o.__holdingDiv.style.display = 'none';
-			document.body.appendChild(o.__holdingDiv);
-			for (var i = 0; i < o.parameters.length; i++) {
-				o.__holdingDiv.appendChild(o.parameters[i]);
-			}
+			if (Bind.templateFor(constructor) != null) {
+				o.__holdingDiv = document.createElement('div');
+				o.__holdingDiv.style.display = 'none';
+				document.body.appendChild(o.__holdingDiv);
 
-			// not 100% sure why parameters aren't being bound
-			// during the regular Bind() calls, but in some cases they're not:
-			Bind(o.__holdingDiv);
+				for (var i = 0; i < o.parameters.length; i++) {
+					o.__holdingDiv.appendChild(o.parameters[i]);
+				}
+				// not 100% sure why parameters aren't being bound
+				// during the regular Bind() calls, but in some cases they're not:
+				Bind(o.__holdingDiv);
+			}
 		}
 		o.__parameters_imported = true;
 	}; // importParameters()
 
 
 	Bind.applyParameters = function (o) {
-		if (!o.parameters || !isa(o.parameters, Array)) { return; }
+		if (!o.parameters || !isa(o.parameters, Array) || !o.__holdingDiv) {
+			return;
+		}
 		var nodes = o.parameters;
 		for (var i = nodes.length - 1; i >= 0; i--) {
 			var id = nodes[i]['data-id'];
+
+			if (!id && typeof(nodes[i]['getAttribute']) == 'function') {
+				id = nodes[i].getAttribute('data-id');
+			}
+
 			if (id) {
 				o[id] = nodes[i];
 			}
@@ -887,6 +1033,18 @@ if (!this.Bind) {
 		o.__holdingDiv.parentNode.removeChild(o.__holdingDiv);
 		delete o.__holdingDiv;
 	}; // applyParameters()
+
+
+	Bind.copyDefaultAttributes = function(from, to) {
+		if (!isa(from, Node) || !isa(to, Node)) return;
+		for (var i = 0; i < from.attributes.length; i++) {
+			var name = from.attributes[i].name;
+			if (!to.hasAttribute(name)) {
+				to.setAttribute(name, from.attributes[i].value);
+				to[name] = from.attributes[i].value;
+			}
+		}
+	};
 
 
 	Bind.getChildren = function (o, query) {
@@ -906,105 +1064,6 @@ if (!this.Bind) {
 
 		return rv;
 	}; // getChildren()
-
-
-	Bind.Box = function(x, y, w, h, mt, mr, mb, ml) {
-		this.x = x || 0;
-		this.y = y || 0;
-		this.width = w || 0;
-		this.height = h || 0;
-		this.marginTop = mt || 0;
-		this.marginRight = mr || 0;
-		this.marginBottom = mb || 0;
-		this.marginLeft = ml || 0;
-
-		this.contains = function(x, y) {
-			var ex = this.x - Math.ceil(this.marginLeft/2);
-			var ey = this.y - Math.ceil(this.marginTop/2);
-			var eright = this.x + this.width - Math.ceil(this.marginRight/2);
-			var ebottom = this.y + this.height - Math.ceil(this.marginBottom/2);
-			if (x >= ex && x <= eright && y >= ey && y <= ebottom) {
-				return true;
-			} else {
-				return false;
-			}
-		}; // contains()
-
-		this.getBottom = function() {
-			return this.y + this.height;
-		}; // getCorners()
-
-		this.getRight = function() {
-			return this.x + this.width;
-		}; // getCorners()
-
-		this.rangeOverlaps = function(aMin, aMax, bMin, bMax) {
-			return aMin <= bMax && bMin <= aMax;
-		}; // lineOverlaps()
-
-		this.xOverlaps = function(box) {
-			return this.rangeOverlaps(
-				this.x, this.getRight(), box.x, box.getRight()
-			);
-		}; // xOverlaps()
-
-		this.yOverlaps = function(box) {
-			return this.rangeOverlaps(
-				this.y, this.getBottom(), box.y, box.getBottom()
-			);
-		}; // yOverlaps()
-
-		this.overlaps = function(box) {
-			return this.xOverlaps(box) && this.yOverlaps(box);
-		}; // overlaps()
-
-	}; // Bind.Box()
-
-
-	Bind.NodeBox = function(n) {
-		this.x = n.offsetLeft;
-		this.y = n.offsetTop;
-
-		var temp = n;
-		while (temp = temp.offsetParent) {
-			this.x += temp.offsetLeft;
-			this.y += temp.offsetTop;
-		}
-
-		this.left = this.x;
-		this.top = this.y;
-		this.width = n.offsetWidth;
-		this.height = n.offsetHeight;
-		this.right = this.x + this.width;
-		this.bottom = this.x + this.height;
-
-		var style = {
-			marginLeft: '', marginRight: '', marginTop: '', marginBottom: ''
-		};
-
-		this.marginLeft = parseInt(style.marginLeft.replace(/[^0-9]/g, '') || '0');
-		this.marginRight = parseInt(style.marginRight.replace(/[^0-9]/g, '') || '0');
-		this.marginTop = parseInt(style.marginTop.replace(/[^0-9]/g, '') || '0');
-		this.marginBottom = parseInt(style.marginBottom.replace(/[^0-9]/g, '') || '0');
-	}; // getCoordinates()
-	Bind.NodeBox.prototype = new Bind.Box();
-
-
-	// TG.MouseCoords
-	// Determines and stores the Coordinates for a mouse event
-	TG.MouseCoords = function (event) {
-		var e = event || window.event;
-		if (e.changedTouches) {
-			this.x = e.changedTouches[0].pageX;
-			this.y = e.changedTouches[0].pageY;
-		} else if (e.pageX || e.pageY) {
-			this.x = e.pageX;
-			this.y = e.pageY;
-		} else if (e.clientX || e.clientY) {
-			this.x = e.clientX + document.body.scrollLeft;
-			this.y = e.clientY + document.body.scrollTop;
-		}
-	}; // TG.MouseCoords
 
 
 	window.getNodes = window.getNodes || function (n, q) {
@@ -1055,24 +1114,103 @@ this.Build = function (constructor, o) {
 } // Build()
 this.New = Build;
 
+
 console.log('Loaded Bind.');
+});
 
-upon(function() { return document.body; }, function() {
-	this._bindq = window._bindq || {};
-	this._bindq.push = function(c,b) { Bind(c,b); };
-	if (this._bindq instanceof Array) {
-		for (var i = 0; i < this._bindq.length; i += 2) {
-			Bind(this._bindq[i], this._bindq[i+1]);
+
+tgmodule.d('./','./tg-box.js',function(module){
+TG.Box = function(x, y, w, h, mt, mr, mb, ml) {
+	this.x = x || 0;
+	this.y = y || 0;
+	this.width = w || 0;
+	this.height = h || 0;
+	this.marginTop = mt || 0;
+	this.marginRight = mr || 0;
+	this.marginBottom = mb || 0;
+	this.marginLeft = ml || 0;
+
+	this.contains = function(x, y) {
+		var ex = this.x - Math.ceil(this.marginLeft/2);
+		var ey = this.y - Math.ceil(this.marginTop/2);
+		var eright = this.x + this.width - Math.ceil(this.marginRight/2);
+		var ebottom = this.y + this.height - Math.ceil(this.marginBottom/2);
+		if (x >= ex && x <= eright && y >= ey && y <= ebottom) {
+			return true;
+		} else {
+			return false;
 		}
+	}; // contains()
+
+	this.getBottom = function() {
+		return this.y + this.height;
+	}; // getCorners()
+
+	this.getRight = function() {
+		return this.x + this.width;
+	}; // getCorners()
+
+	this.rangeOverlaps = function(aMin, aMax, bMin, bMax) {
+		return aMin <= bMax && bMin <= aMax;
+	}; // lineOverlaps()
+
+	this.xOverlaps = function(box) {
+		return this.rangeOverlaps(
+			this.x, this.getRight(), box.x, box.getRight()
+		);
+	}; // xOverlaps()
+
+	this.yOverlaps = function(box) {
+		return this.rangeOverlaps(
+			this.y, this.getBottom(), box.y, box.getBottom()
+		);
+	}; // yOverlaps()
+
+	this.overlaps = function(box) {
+		return this.xOverlaps(box) && this.yOverlaps(box);
+	}; // overlaps()
+
+}; // TG.Box()
+
+module.exports = TG.Box;
+});
+
+
+tgmodule.d('./','./tg-nodebox.js',function(module){
+var Box = require('tg-box.js');
+
+TG.NodeBox = function(n) {
+	this.x = n.offsetLeft;
+	this.y = n.offsetTop;
+
+	var temp = n;
+	while (temp = temp.offsetParent) {
+		this.x += temp.offsetLeft;
+		this.y += temp.offsetTop;
 	}
-});
+
+	this.left = this.x;
+	this.top = this.y;
+	this.width = n.offsetWidth;
+	this.height = n.offsetHeight;
+	this.right = this.x + this.width;
+	this.bottom = this.x + this.height;
+
+	var style = {
+		marginLeft: '', marginRight: '', marginTop: '', marginBottom: ''
+	};
+
+	this.marginLeft = parseInt(style.marginLeft.replace(/[^0-9]/g, '') || '0');
+	this.marginRight = parseInt(style.marginRight.replace(/[^0-9]/g, '') || '0');
+	this.marginTop = parseInt(style.marginTop.replace(/[^0-9]/g, '') || '0');
+	this.marginBottom = parseInt(style.marginBottom.replace(/[^0-9]/g, '') || '0');
+}; // getCoordinates()
+TG.NodeBox.prototype = new Box();
+
+module.exports = TG.NodeBox;
 });
 
-tgmodule.d('./','./tg-namespace.js',function(module){
-});
 
-tgmodule.d('./','./tg-upon.js',function(module){
-});
 
 tgmodule.d('./','./tg-api.js',function(module){
 require('tg-namespace.js');
@@ -1082,30 +1220,38 @@ TG.API.longPolls = TG.API.longPolls || [];
 TG.API.requests = TG.API.requests || {};
 TG.API.APIs = TG.API.APIs || [];
 
-TG.addSlashes = function(s) {
+TG.replaceAll = function(s, map) {
 	s = String(s);
-	s = s.replace(/\\/g, "\\\\");
-	s = s.replace(/\"/g, "\\\"");
-	s = s.replace(/\'/g, "\\\'");
+	map.forEach(function(replacement) {
+		s = s.replace(replacement[0], replacement[1]);
+	});
+	return s;
+};
+
+TG.addSlashes = function(s) {
+	return TG.replaceAll(s, [
+		[/\\/g, "\\\\"],
+		[/\"/g, "\\\""],
+		[/\'/g, "\\\'"],
+	]);
 	return s;
 }; // TG.addSlashes()
 
 
 TG.jsonEscape = function(s) {
-	s = String(s);
-	s = s.replace(/\\/g, "\\\\");
-	s = s.replace(/\"/g, "\\\"");
-	s = s.replace(/\//g, "\\/");
-	s = s.replace(/[\b]/g, "\\b");
-	s = s.replace(/\f/g, "\\f");
-	s = s.replace(/\n/g, "\\n");
-	s = s.replace(/\r/g, "\\r");
-	s = s.replace(/\t/g, "\\t");
-	s = s.replace(/[^\u0020-\u007d]/g, function(s) {
+	return TG.replaceAll(s, [
+		[/\\/g, "\\\\"],
+		[/\"/g, "\\\""],
+		[/\//g, "\\/"],
+		[/[\b]/g, "\\b"],
+		[/\f/g, "\\f"],
+		[/\n/g, "\\n"],
+		[/\r/g, "\\r"],
+		[/\t/g, "\\t"],
+		[/[^\u0020-\u007d]/g, function(s) {
 			return '\\u' + ('0000' + s.charCodeAt(0).toString(16)).slice(-4);
-		}
-	);
-	return s;
+		}]
+	]);
 }; // TG.jsonEscape()
 
 
@@ -1119,6 +1265,13 @@ TG.stringify = function (o, depth, stringify_instance, make_refs) {
 	if (d < 1) {
 		return undefined;
 	}
+
+	var omissions = {
+		__stringify_instance: 1,
+		__parameters_imported: 1,
+		__attributes_imported: 1,
+		__AlreadyBound: 1,
+	};
 
 	var instance = stringify_instance || Math.random();
 	if (o && o.__stringify_instance && o.__stringify_instance == instance) {
@@ -1153,55 +1306,15 @@ TG.stringify = function (o, depth, stringify_instance, make_refs) {
 		);
 	} else if (typeof(o) === 'object') {
 		var _rv = [];
-		var props_written = 0;
-
 		for (var i in o) {
-			var omissions = {};
-			omissions.__stringify_instance = 1;
-			omissions.__parameters_imported = 1;
-			omissions.__attributes_imported = 1;
-			omissions.__AlreadyBound = 1;
 			if (!omissions[i] && o.hasOwnProperty(i) && !i.match(/__TG/)) {
 				var v = TG.stringify(o[i], d - 1, instance, make_refs);
 				var k = TG.stringify(i, d - 1, instance, make_refs);
 				if (k && typeof(v) == 'string') {
-					props_written += 1;
 					_rv.push(k + ':' + v);
 				}
 			}
-
-			/*
-			if (i == 'childNodes' && o[i].length > 0) {
-				var v = TG.stringify(
-					Array.prototype.slice.apply(o[i]),
-					d - 1,
-					instance,
-					make_refs
-				);
-				_rv.push(i + ':' + v);
-			}
-			*/
-
-			/*
-			if (i == 'innerHTML' && o.innerHTML.length > 0) {
-				_rv.push(i + ':' + TG.stringify(o.innerHTML));
-			}
-			*/
 		}
-
-		/*
-		if (props_written == 0 && o.childNodes) {
-			// _rv.push('"innerHTML":' + TG.stringify(o.innerHTML));
-			var v = TG.stringify(
-				Array.prototype.slice.apply(o.childNodes),
-				d - 1,
-				instance,
-				make_refs
-			);
-			_rv.push('"childNodes":' + v);
-		}
-		*/
-
 		rv = '{' + _rv.join(',') + '}';
 	} else if (typeof(o) === 'number') {
 		rv = String(o);
@@ -1571,14 +1684,6 @@ TG.API.alter = function(t, i, r) {
 }; // TG.API.alter()
 
 
-TG.API.requestToken = function(api) {
-	var tf = document.createElement('iframe');
-	tf.src = api + "?tg-tr=1";
-	tf.style.display = 'none';
-	document.body.appendChild(tf);
-}; // TG.API.requestToken()
-
-
 TG.findGlobal = function(s) {
 	var parts = s.split('.');
 	var rv = window;
@@ -1657,8 +1762,6 @@ TG.copy = function(cc_source, cc_target) {
 			// ignore
 		} else if (typeof(crv[i]) === 'function') {
 			// ignore
-		} else if (isa(crv[i], 'TG.Internal')) {
-			// ignore
 		} else if (isa(cc_source[i], Array)) {
 			if (!isa(crv[i], Array)) {
 				crv[i] = cc_source[i];
@@ -1686,45 +1789,6 @@ TG.copy = function(cc_source, cc_target) {
 }; // TG.copy()
 
 
-TG.BaseObject = function(o) {
-	for (var i in o) {
-		this[i] = o[i];
-	}
-	setType(this, 'TG.BaseObject');
-}; // TG.BaseObject
-
-
-TG.Internal = function(o) {
-	var _t = this;
-	if (typeof(o) == 'function') {
-		_t = o;
-	}
-	TG.BaseObject.apply(_t, arguments);
-	setType(_t, 'TG.Internal');
-	return _t;
-}; // TG.Internal
-
-
-// an object upon which server methods can be called
-TG.ServerObject = function() {
-	TG.BaseObject.apply(this, arguments);
-	setType(this, 'TG.ServerObject');
-}; // TG.ServerObject
-
-
-// an object upon which CRUD ops can occur
-TG.DataObject = function() {
-	TG.ServerObject.apply(this, arguments);
-	setType(this, 'TG.DataObject');
-}; // TG.BaseObject
-
-
-TG.DataObjectReference = function() {
-	TG.ServerObject.apply(this, arguments);
-	setType(this, 'TG.DataObjectReference');
-}; // TG.DataObjectReference
-
-
 TG.FunctionReference = function() {
 	var rv = function() {
 		var method;
@@ -1746,8 +1810,8 @@ TG.FunctionReference = function() {
 	return rv;
 }; // TG.FunctionReference()
 
-TG.Value = function(v) {
 
+TG.Value = function(v) {
 	var value = undefined;
 
 	this.valueOf = function() {
@@ -1764,12 +1828,1502 @@ TG.Value = function(v) {
 	}
 
 	setType(this, 'TG.Value');
-
 }; // TG.Value()
 });
 
-tgmodule.d('./','./tg-namespace.js',function(module){
+
+
+
+
+tgmodule.d('./','./tg-mouse-coords.js',function(module){
+require('tg-box.js');
+
+// TG.MouseCoords
+// Determines and stores the Coordinates for a mouse event
+TG.MouseCoords = function (event) {
+	var e = event || window.event;
+	if (e.changedTouches) {
+		this.x = e.changedTouches[0].pageX;
+		this.y = e.changedTouches[0].pageY;
+	} else if (e.pageX || e.pageY) {
+		this.x = e.pageX;
+		this.y = e.pageY;
+	} else if (e.clientX || e.clientY) {
+		this.x = e.clientX + document.body.scrollLeft;
+		this.y = e.clientY + document.body.scrollTop;
+	}
+}; // TG.MouseCoords
+
+module.exports = TG.MouseCoords;
 });
+
+tgmodule.d('./','./tg-dragdrop.js',function(module){
+require('tg-upon.js');
+require('tg-namespace.js');
+require('tg-dom.js');
+require('tg-mouse-coords.js');
+
+TG.DragDrop = TG.DragDrop || {
+
+	active_draggable: null,
+	drops: [],
+	draggables: [],
+
+	getCollection: function(o) {
+		if (isa(o, 'TG.Draggable')) {
+			return this.draggables;
+		}
+		if (isa(o, 'TG.SortableList')) {
+			return this.drops;
+		}
+	}, // getList()
+
+	contains: function(o) {
+		var l = this.getCollection(o);
+		for (var i = 0; i < l.length; i++) {
+			if (l[i] == o) return i;
+		}
+		return false;
+	}, // contains()
+
+	objectAt: function (x, y, l) {
+		var l = l || this.draggables;
+		for (var i in l) {
+			if (l[i].contains(x, y)) {
+				return l[i];
+			}
+		}
+		return null;
+	}, // objectAt()
+
+	dropSpotAt: function(x, y) {
+		return this.objectAt(x, y, this.drops);
+	}, // dropSpotAt()
+
+	handleAt: function (x, y, l) {
+		var l = this.draggables;
+		var o = this.objectAt(x, y, l);
+		if (o) {
+			if (o.handleContains(x, y)) {
+				return o;
+			}
+		}
+		return null;
+	}, // handleAt()
+
+	add: function(o) {
+		var c = this.getCollection(o);
+		if (!this.contains(o, c)) c.push(o);
+	}, // add()
+
+	remove: function(o) {
+		var c = this.getCollection(o);
+		var i = this.contains(o, c);
+		if (i) c.splice(i, 1);
+		return i;
+	}, // remove()
+
+	grab: function(mc) {
+		var o = null;
+		if (!this.active_draggable) {
+			o = this.handleAt(mc.x, mc.y);
+			if (o && isa(o, 'TG.Draggable')) {
+				if (typeof (o.enabled) === 'undefined' || o.enabled) {
+					o.pickUp(mc, true);
+					this.active_draggable = o;
+					this.over_spot = this.dropSpotAt(mc.x, mc.y);
+					this.over(mc);
+				}
+			}
+		}
+		return o;
+	}, // grab()
+
+	drag: function(mc) {
+		if (this.active_draggable) {
+			this.active_draggable.drag(mc);
+			this.over(mc);
+			return true;
+		} else {
+			return false;
+		}
+	}, // drag()
+
+	over: function(mc) {
+		var s = mc ? this.dropSpotAt(mc.x, mc.y) : null;
+		if (s == null || s != this.over_spot) {
+			if (this.over_spot) {
+				this.over_spot.dragOut(this.active_draggable);
+			}
+			if (s) {
+				s.dragOver(mc, this.active_draggable);
+			}
+			this.over_spot = s;
+		}
+	}, // over()
+
+	drop: function(mc) {
+		var o = this.active_draggable;
+		if (o) {
+			this.active_draggable = null;
+			this.over(null);
+			var droppedonto = null;
+			var t = this.dropSpotAt(mc.x, mc.y) || o.getContainer();
+			for (var i = 0; i < this.drops.length; i++) {
+				if (this.drops[i] == t) {
+					var ok = this.drops[i].dropOver(o, mc)
+					droppedonto = ok ? t : null;
+				} else {
+					// removes any lingering drop preview
+					this.drops[i].dropOver(null);
+				}
+			}
+			if (droppedonto) {
+				o.drop(mc, droppedonto);
+			} else {
+				o.return();
+			}
+			return true;
+		} else {
+			return false;
+		}
+	} // drop()
+
+}; // TG.DragDrop
+
+
+TG.SortableList = function () {
+	this.add = function (item) {
+		if (item == null) { return; }
+
+		if (isa(item, Array)) {
+			for (var i in item) {
+				this.add(item[i]);
+			}
+		} else if (isa(item, 'TG.Draggable')) {
+			var doAdd = true;
+			for (var i in this.objects) {
+				if (this.objects[i] == item) {
+					doAdd = false;
+					break;
+				}
+			}
+
+			if (doAdd) {
+				if (item.container && typeof (item.container.remove) === 'function') {
+					item.container.remove(item);
+				}
+
+				item.index = this.objects.length;
+				this.objects.push(item);
+				item.container = this;
+
+				if (item.parentNode !== this) {
+					this.appendChild(item);
+				}
+			}
+		} else {
+			this.add(New(TG.Draggable(item, [this])));
+		}
+
+	}; // add()
+
+	this.remove = function (item) {
+		for (var i = 0; i < this.objects.length; i++) {
+			if (this.objects[i] === item) {
+				this.objects.splice(i, 1);
+			}
+		}
+		return null;
+	}; // remove()
+
+	this.dragStart = function(item) {
+		var ok = 1;
+
+		if (typeof(this.ondragstart) == 'function') {
+			ok = this.ondragstart(item);
+		}
+
+		if (ok) {
+			this.remove(item);
+			this.drop_preview = this.getDropPreview(item);
+			return this.replaceChild(this.drop_preview, item);
+		}
+
+		return ok;
+	}; // dragStart();
+
+	this.dragOver = function(mc, item) {
+		var ok = 1;
+		if (typeof(this.ondragover) == 'function') {
+			ok = this.ondragover(item);
+		}
+		if (ok) {
+			var ro = TG.DragDrop.objectAt(mc.x, mc.y);
+			if (ro == this) ro = null;
+			var dp = this.getDropPreview(item);
+			dp.move(this, ro);
+		}
+	}; // dragOver()
+
+	this.dragOut = function(item) {
+		this.removeDropPreview();
+		if (typeof(this.ondragout) == 'function') {
+			this.ondragout(item);
+		}
+	}; // dragOut()
+
+	this.dropOver = function(o, mc) {
+		var ok = Boolean(o);
+
+		if (ok && typeof(this.ondropover) === 'function') {
+			ok = this.ondropover(o);
+		}
+
+		if (ok && o) {
+			this.add(o);
+			this.insertBefore(o, this.getDropPreview(o));
+		}
+
+		this.removeDropPreview();
+		return ok;
+	}; // dropOver()
+
+	this.contains = function (x, y) {
+		var coords = new TG.NodeCoords(this);
+		return coords.contains(x, y);
+	}; // contains()
+
+	this.getObjects = function () {
+		return this.objects;
+	}; // getObjects()
+
+	this.getDropPreview = function(item, s) {
+		if (!this.drop_preview) {
+			this.drop_preview = New(TG.DropPreview, {container: this});
+			copyStyle(
+				item,
+				this.drop_preview,
+				TG.DropPreview.relevantStyles
+			);
+			this.appendChild(this.drop_preview);
+		}
+		return this.drop_preview;
+	}; // getDropPreview()
+
+	this.removeDropPreview = function() {
+		if (this.drop_preview) {
+			this.removeChild(this.drop_preview);
+			this.drop_preview = null;
+			return true;
+		} else {
+			return false;
+		}
+	}; // removeDropPreview()
+
+	this.objects = [];
+	this.dragging = null;
+	this.drop_preview = null;
+
+	// container must be positioned either absolutely or relatively
+	// to allow ... ? ... wait ... what?
+	if (this.style.position != 'absolute') {
+		this.style.position = 'relative';
+	}
+
+	setType(this, 'TG.SortableList');
+
+	TG.DragDrop.add(this);
+
+}; // SortableList
+Bind(TG.SortableList, 'tg-sortable-list');
+Bind(TG.SortableList, 'tg:sortablelist');
+
+
+// DropSpot
+// Spot that holds a single Draggable
+TG.DropSpot = function() {
+	TG.SortableList.apply(this, arguments);
+
+	this.dragOut = function(item) {
+		if (typeof(this.ondragout) == 'function') {
+			this.ondragout(item);
+		}
+	}; // dragOut()
+
+	setType(this, 'TG.DropSpot');
+}; // TG.DropSpot
+Bind(TG.DropSpot, 'tg-drop-spot');
+
+
+
+// Draggable
+// Turns a node or object with a .node property into a drag-droppable thing.
+// The container parameter can either be a Node or an Array of Nodes
+TG.Draggable = function () {
+	setType(this, 'TG.Draggable');
+
+	this.container = null;
+	this.handle = this.handle || this['data-handle'] || this;
+	this.index = 0;
+	this.dragging = false;
+	this.x_offset = 0;
+	this.y_offset = 0;
+	this.coords = function () { return new TG.NodeCoords(this); };
+	this.old_coords = null;
+	this.drop_preview = null;
+	this.screen_protector = null;
+
+	this.debug = null;
+
+	this.destroy = function () {
+		this.handle.style.cursor = 'default';
+		this.o = null;
+		this.targets = null;
+		this.container = null;
+		this.handle = null;
+	}; // destroy()
+
+	this.contains = function (x, y) {
+		if (!this.dragging) {
+			var nc = new TG.NodeCoords(this);
+			return nc.contains(x, y);
+		} else {
+			return false;
+		}
+	}; // contains()
+
+	this.handleContains = function (x, y) {
+		if (!this.dragging) {
+			var nc = new TG.NodeCoords(this.handle);
+			return nc.contains(x, y);
+		} else {
+			return false;
+		}
+	}; // handleContains()
+
+	this.getContainer = function() {
+		if (!this.container) {
+			if (isa(this.parentNode, 'TG.DropSpot')
+				|| isa(this.parentNode, 'TG.SortableList')
+			) {
+				this.container = this.parentNode;
+				this.container.add(this);
+			} else if (this.sticky || this['data-sticky']) {
+				this.container = New(TG.DropSpot);
+				copyStyle(
+					this,
+					this.container,
+					['display','position','float','clear']
+				);
+				this.parentNode.insertBefore(this.container, this);
+				this.container.add(this);
+			}
+		}
+		return this.container;
+	}; // getContainer()
+
+	this.pickUp = function(mc) {
+		this.screen_protector = New(TG.ScreenProtector);
+		document.body.appendChild(this.screen_protector);
+
+		this.old_coords = new TG.NodeCoords(this);
+		this.x_offset = mc.x - this.coords().x;
+		this.y_offset = mc.y - this.coords().y;
+
+		var _t = this;
+
+		var c = this.getContainer();
+		if (c) {
+			c.dragStart(this);
+			this.returnto = c;
+		}
+
+		// flag it as being dragged.
+		this.dragging = true;
+		this.setStyles();
+		document.body.appendChild(this);
+
+		this.style.left = (mc.x - this.x_offset) + 'px';
+		this.style.top = (mc.y - this.y_offset) + 'px';
+	}; // pickUp()
+
+	this.drag = function (mc) {
+		this.style.left = (mc.x - this.x_offset) + 'px';
+		this.style.top = (mc.y - this.y_offset) + 'px';
+	}; // drag()
+
+	this.drop = function (mc, t) {
+		if (this.screen_protector) {
+			this.screen_protector = this.screen_protector.remove();
+		}
+
+		this.dragging = false;
+		this.setStyles();
+
+		if (typeof(this.ondrop) == 'function') {
+			this.ondrop(mc, t);
+		}
+	}; // drop()
+
+	this.setStyles = function() {
+		if (this.dragging) {	
+			this.style.opacity = 0.5;
+			this.style.filter = 'alpha(opacity=50)';
+			this.style.position = 'absolute';
+			this.style.zIndex = 1000;
+		} else {
+			if (this.getContainer()) {
+				this.style.position = '';
+				this.style.left = '';
+				this.style.top = '';
+				this.style.zIndex = '';
+			}
+
+			this.style.opacity = '';
+			this.style.filter = '';
+
+			this.x_offset = 0;
+			this.y_offset = 0;
+		}
+	}; // setStyles()
+
+	this.return = function() {
+		if (this.returnto) {
+			this.returnto.add(this);
+		}
+		this.drop(null, null);
+	}; // return()
+
+	this.hide = function() {
+		this._display = this.style.display;
+		this.style.display = 'none';
+	}; // hide()
+
+	this.show = function() {
+		this.style.display = this._display || '';
+	}; // show()
+
+	TG.DragDrop.add(this);
+
+}; // Draggable
+
+TG.Draggable.compare = function (a, b) {
+	if (a.index > b.index) {
+		return 1;
+	} else {
+		return -1;
+	}
+}; // Draggable.compare()
+
+Bind(TG.Draggable, 'tg-draggable');
+Bind(TG.Draggable, 'tg:draggable');
+
+
+// DropPreview
+// The placeholder that's moved around the DropZones during dragging.
+TG.DropPreview = function () {
+	setType(this, 'TG.DropPreview');
+
+	this.index = 0;
+
+	this.contains = function (x, y) {
+		var nc = new TG.NodeCoords(this);
+		return nc.contains(x, y);
+	}; // contains()
+
+	// wait. what is this? why is it commented out? what was it supposed to
+	// accomplish to begin with!?
+	this.move = function (container, o) {
+		/*
+		var inspace = false;
+		if (!this.drop_preview.contains(mc.x, mc.y)) {
+			inspace = true;
+			var o = DragDrop.objectAt(mc.x, mc.y);
+			var oc = o.getContainer();
+			for (var i = 0; i < this.targets.length; i++) {
+				if (this.targets[i] == oc) {
+					this.drop_preview.move(oc, o);
+					inspace = false;
+				}
+			}
+		}
+
+		if (
+			inspace
+			&& (this.prefer_home || this.preferHome)
+			&& isa(this.home, Node)
+		) {
+			this.drop_preview.move(this.home);
+		}
+
+		if (o === this) {
+			return;
+		}
+
+		if (container !== this.container) {
+			if (typeof (container.onmoveover) === 'function') {
+				container.onmoveover(o);
+			}
+			if (this.container && typeof (this.container.onmoveout) === 'function') {
+				this.container.onmoveout(o);
+			}
+		}
+
+		if (o) {
+			this.container = container;
+			if (o.previousSibling === this) {
+				o.parentNode.insertBefore(this, o.nextSibling);
+				this.index = o.index + 1;
+			} else {
+				o.parentNode.insertBefore(this, o);
+				this.index = o.index;
+			}
+		} else if (container && isa(container, Node)) {
+			this.container = container;
+			container.appendChild(this);
+			for (var i = 0; i < container.objects.length; i++) {
+				if (this.index <= container.objects.length) {
+					this.index = container.objects.length;
+				}
+			}
+			this.index += 1;
+		}
+		*/
+	}; // move()
+
+	this.style.border = '2px solid green';
+
+}; // TG.DropPreview
+TG.DropPreview.templateMarkup = "&nbsp;";
+TG.DropPreview.relevantStyles = [
+	'display','position','width','height','top','left','border-width','margin',
+	'padding', 'float','clear'
+];
+Bind(TG.DropPreview, 'tg-drop-preview');
+
+
+// ScreenProtector
+// Invisible node that covers the screen during drag-dropping to prevent
+// inadvertent text highlighting and image or link dragging.
+TG.ScreenProtector = function () {
+
+	setType(this, 'TG.ScreenProtector');
+
+	this.remove = function () {
+		document.body.removeChild(this);
+		return null;
+	} // remove()
+
+}; // ScreenProtector
+TG.ScreenProtector.templateMarkup = " ";
+Bind(TG.ScreenProtector, 'tg-screen-protector');
+
+
+// TG.NodeCoords
+// Determines and contains the coordinates for a node.
+TG.NodeCoords = function (n) {
+
+	this.x = n.offsetLeft;
+	this.y = n.offsetTop;
+
+	var temp = n;
+	while (temp = temp.offsetParent) {
+		this.x += temp.offsetLeft;
+		this.y += temp.offsetTop;
+	}
+
+	this.left = this.x;
+	this.top = this.y;
+
+	this.width = n.offsetWidth;
+	this.right = this.x + n.offsetWidth;
+
+	this.height = n.offsetHeight;
+	this.bottom = this.y + n.offsetHeight;
+
+	var style = {
+		marginLeft: "", marginRight: "",
+		marginTop: "", marginBottom: ""
+	};
+
+	if (n.currentStyle) {
+		style = n.currentStyle;
+	} else if (window.getComputedStyle) {
+		style = getComputedStyle(n);
+	}
+
+	this.marginLeft =
+		parseInt(style.marginLeft.replace(/[^0-9]/g, '') || '0');
+	this.marginRight =
+		parseInt(style.marginRight.replace(/[^0-9]/g, '') || '0');
+	this.marginTop =
+		parseInt(style.marginTop.replace(/[^0-9]/g, '') || '0');
+	this.marginBottom =
+		parseInt(style.marginBottom.replace(/[^0-9]/g, '') || '0');
+
+	this.contains = function (x, y) {
+		var ex = this.x - Math.ceil(this.marginLeft / 2);
+		var ey = this.y - Math.ceil(this.marginTop / 2);
+		var eright = this.right * 1 + Math.ceil(this.marginRight / 2);
+		var ebottom = this.bottom * 1 + Math.ceil(this.marginBottom / 2);
+		if (x >= ex && x <= eright && y >= ey && y <= ebottom) {
+			return true;
+		} else {
+			return false;
+		}
+	}; // contains()
+
+}; // TG.NodeCoords
+
+
+document.onmousedown = function (evt) {
+	var e = evt || window.event;
+	var mc = new TG.MouseCoords(e);
+	if (TG.DragDrop.grab(mc) && typeof(e.preventDefault) == 'function') {
+		e.preventDefault();
+	}
+}; // document.onmousedown()
+
+document.onmousemove = function (evt) {
+	var e = evt || window.event;
+	var mc = new TG.MouseCoords(e);
+	if (TG.DragDrop.drag(mc) && typeof(e.preventDefault) == 'function') {
+		e.preventDefault();
+	}
+}; // document.onmousemove()
+
+document.onmouseup = function (evt) {
+	var e = evt || window.event;
+	var mc = new TG.MouseCoords(e);
+	if (TG.DragDrop.drop(mc) && typeof(e.preventDefault) == 'function') {
+		e.preventDefault();
+	}
+}; // document.onmouseup()
+
+document.ontouchstart = document.onmousedown;
+document.ontouchmove = document.onmousemove;
+document.ontouchend = document.onmouseup;
+document.ontouchleave = document.onmouseup;
+document.ontouchcancel = document.onmouseup;
+
+console.log('TG.DragDrop loaded. (2)');
+});
+
+
+
+tgmodule.d('./','./tg-test.js',function(module){
+require('tg-upon.js');
+require('tg-namespace.js');
+
+TG.Testing || {
+
+	Test: function(name, test) {
+		this.name = name;
+		this.test = function() {
+			var rv;
+			try {
+				test();
+				rv = {
+					success: true,
+					name: name,
+					message: ""
+				};
+			} catch (ex) {
+				rv = {
+					success: false,
+					name: name,
+					message: TG.stringify(ex)
+				};
+			}
+
+			return rv;
+		}; // test()
+		setType(this, 'TG.Testing.Test');
+	},
+
+	FakeDisk: function(storage) {
+
+		var storage = storage || {};
+		var backup = {};
+
+		this.build = function() {
+			backup.tg_save = tg_save;
+			backup.tg_retrieve = tg_retrieve;
+			backup.tg_delete = tg_delete;
+
+			tg_save = function(js) {
+				// var id = tg_save(TG.stringify(_t, null, null, true));
+				eval('var o = ' + js);
+				if (!o['tg-id']) {
+					o['tg-id'] = 'MEM-' + (new Date()).getTime() + '.' + Math.random();
+				}
+				var id = o['tg-id'];
+				storage[id] = TG.stringify(o, null, null, true);
+				return id;
+			}; // TEMP tg_save()
+
+			tg_retrieve = function(id) {
+				return storage[id];
+			}; // TEMP tg_retrieve()
+
+			tg_delete = function(id) {
+				delete storage[id];
+			}; // TEMP tg_delete()
+		}; // build()
+
+		this.dispose = function() {
+			tg_save = backup.tg_save;
+			tg_retrieve = backup.tg_retrieve;
+			tg_delete = backup.tg_delete;
+		}; // destroy
+
+		this.build();
+
+		setType(this, 'TG.Testing.FakeDisk');
+	}, // TG.Testing.FakeDisk
+
+	Suite: function() {
+		TG.DataObject.apply(this);
+
+		this.suite = arguments;
+		this.run = function() {
+			var disk = new TG.Testing.FakeDisk();
+
+			var rv = { passed: [], failed: [] };
+			for (var i = 0; i < this.suite.length; i++) {
+				var t = this.suite[i];
+
+				if (i == 0 && t && typeof(t) == 'string') {
+					eval.call(global, tg_readfile(t));
+				} else if (isa(t, 'TG.Testing.Test')) {
+					var r = t.test();
+					if (r.success) {
+						rv.passed.push(r);
+					} else {
+						rv.failed.push(r);
+					}
+				}
+			}
+
+			disk.dispose();
+
+			return rv;
+		}; // run()
+
+		setType(this, 'TG.Testing.Suite');
+	}
+
+}; // TG.Testing
+
+
+TG.assert = function(passed, failure_description) {
+	if (!passed) {
+		throw String(failure_description);
+	}
+}; // TG.assert()
+
+});
+
+
+
+
+tgmodule.d('./','./tg-ui.js',function(module){
+require('tg-upon.js');
+require('tg-namespace.js');
+require('tg-dom.js');
+
+
+var _bindq = _bindq || [];
+
+TG.UI.SubmitButton = function() {
+	var _t = this;
+	this.submitButton.onclick = function() {
+		on(_t, 'submit').fire();
+	}; // onclick()
+
+	setType(this, 'TG.UI.SubmitButton');
+	onready(this).fire();
+}; // TG.UI.SubmitButton
+TG.UI.SubmitButton.templateMarkup = "\
+	<input type='button' data-id='submitButton' value='Sign in' />\
+";
+_bindq.push(TG.UI.SubmitButton, '.tg-submit-button');
+
+
+TG.UI.Field = function() {
+	var _t = this;
+
+	this.style.width = '100%';
+
+	this.setName = function(n) {
+		this.fieldInput.name = n;
+		this.fieldLabel.innerHTML = n;
+	}; // setName()
+
+	this.getName = function() {
+		return this.fieldLabel.innerHTML;
+	}; // getName()
+
+	this.setValue = function(v) {
+		this.fieldInput.value = v;
+	}; // setValue()
+
+	this.getValue = function() {
+		return this.fieldInput.value;
+	}; // getValue()
+
+	this.focus = function() {
+		this.fieldInput.focus();
+	}; // focus();
+
+	this.blur = function() {
+		this.fieldInput.blur();
+	}; // blur()
+
+	var n = this.name || this['data-name'] || '';
+	this.setName(n);
+
+	var v = this.value || this['data-value'] || '';
+	this.setValue(v);
+
+	var t = this.type || this['data-type'] || this.fieldInput.type;
+	this.fieldInput.type = t;
+
+	this.onclick = function() { this.fieldInput.focus(); };
+
+	setType(this, 'TG.UI.Field');
+	onready(this).fire();
+}; // TG.UI.Field
+TG.UI.Field.templateMarkup = "\
+	<label data-id='fieldLabel' style='display: inline-block; width: 33%; margin: 0px;'></label>\
+	<input type='text' data-id='fieldInput' style=' display: inline-block; width: 60%;'></input>\
+";
+_bindq.push(TG.UI.Field, '.tg-field');
+
+
+TG.UI.PasswordField = function() {
+	this.type = 'password';
+	TG.UI.Field.call(this);
+	setType(this, 'TG.UI.PasswordField');
+	onready(this).fire();
+}; // TG.UI.PasswordField
+TG.UI.PasswordField.templateMarkup = TG.UI.Field.templateMarkup;
+_bindq.push(TG.UI.PasswordField, '.tg-password-field');
+
+
+TG.UI.RadioGroup = function() {
+	var _t = this;
+
+	this.options = [];
+	this.index = {};
+	this.selected = null;
+
+	this.add = function(o) {
+		if (isa(o, 'TG.UI.Radio')) {
+			this.container.appendChild(o);
+			this.options.push(o);
+			this.index[o.value] = o;
+			on(o, 'selectaction', function() { _t.setValue(o.value); });
+			if (o.selected) _t.setValue(o.value);
+		}
+	}; // add()
+
+	this.setValue = function(v) {
+		for (var i in this.index) {
+			if (i != v) {
+				this.index[i].deselect();
+			} else {
+				this.index[i].select();
+				this.selected = this.index[i];
+			}
+		}
+	}; // setValue()
+
+	this.getValue = function() {
+		if (this.selected) {
+			return this.selected.value;
+		} else {
+			return undefined;
+		}
+	}; // getValue()
+
+	onready(this.parameters, function() {
+		for (var i = 0; i < _t.parameters.length; i++) {
+			_t.add(_t.parameters[i]);
+		}
+	});
+
+	setType(this, 'TG.UI.RadioGroup');
+	onready(this).fire();
+}; // TG.UI.RadioGroup
+TG.UI.RadioGroup.templateMarkup = "<div data-id='container'></div>";
+// TG.UI.RadioGroup.templateMarkup = "<div data-id='radioDiv'></div>";
+_bindq.push(TG.UI.RadioGroup, '.tg-radio-group');
+
+
+TG.UI.Radio = function() {
+	// TG.UI.Field.call(this);
+
+	var _t = this;
+
+	this.style.display = 'inline-block';
+	this.style.margin = '0.5em';
+
+	this.value = this.value || this['data-value'] || '';
+
+	this.select = function() {
+		if (!this.fieldInput.checked) {
+			this.fieldInput.checked = true;
+			on(this, 'change').fire();
+			on(this, 'select').fire();
+		}
+	}; // select()
+
+	this.deselect = function() {
+		if (this.fieldInput.checked) {
+			this.fieldInput.checked = false;
+			on(this, 'change').fire();
+			on(this, 'deselect').fire();
+		}
+	}; // deselect()
+
+	this.onclick = function() {
+		on(this, 'selectaction').fire();
+	}; // fieldInput.onchange()
+
+	for (var i = 0; i < this.parameters.length; i++) {
+		this.fieldLabel.appendChild(this.parameters[i]);
+	}
+
+	setType(this, 'TG.UI.Radio');
+	onready(this).fire();
+}; // TG.UI.Option
+TG.UI.Radio.templateMarkup = "\
+	<input type='radio' data-id='fieldInput'></input>\
+	<label data-id='fieldLabel'></label>\
+";
+_bindq.push(TG.UI.Radio, '.tg-radio');
+
+
+TG.UI.LoginLink = function() {
+
+	var _t = this;
+	this.isExpanded = false;
+
+	this.toggle = function() {
+		if (this.isExpanded) {
+			this.collapse();
+		} else {
+			this.expand();
+		}
+	}; // toggle()
+
+	this.expand = function() {
+		this.isExpanded = true;
+		this.loginBox.style.display = 'block';
+		this.loginBox.focus();
+	}; // expand()
+
+	this.collapse = function() {
+		this.isExpanded = false;
+		this.loginBox.style.display = 'none';
+	}; // collapse()
+
+	this.actionLink.onclick = function() {
+		_t.toggle(); return false;
+	}; // actionLink.onclick()
+
+
+	on(this.loginBox, 'submit', function(rv) {
+		if (rv) {
+			_t.collapse();
+		}
+	}); // loginBox.on(submit)
+
+	/*
+	TG.Users.onAuthChange().returnTo(function(user) {
+		if (user && user.getUsername()) {
+			_t.actionLink.innerHTML = "Sign out";
+		} else {
+			_t.actionLink.innerHTML = "Sign in";
+		}
+	});
+	*/
+
+	setType(this, 'TG.UI.LoginLink');
+	onready(this).fire();
+}; // TG.UI.LoginLink
+TG.UI.LoginLink.templateMarkup = "\
+	<a style='cursor: pointer;' data-id='actionLink'>Sign in</a>\
+	<div data-id='loginBox' style='display: none; width: 300px;' class='tg-login-box'></div>\
+";
+_bindq.push(TG.UI.LoginLink, '.tg-login-link');
+
+
+TG.UI.LoginBox = function() {
+	var _t = this;
+
+	onready(this, function() {
+		if (_t.focused == 1) {
+			_t.focus();
+		} else {
+			_t.blur();
+		}
+	});
+
+	this.setMessage = function(m) {
+		this.statusBox.innerHTML = m;
+		this.statusBox.style.display = m ? '' : 'none';
+	}; // setMessage()
+
+	this.focus = function() {
+		this.username.focus();
+	}; // focus();
+
+	this.blur = function() {
+		this.username.blur();
+		this.password.blur();
+	}; // blur()
+
+	this.submit = function() {
+		TG.Users[this.action.getValue()](
+			this.username.getValue(),
+			this.password.getValue()
+		).returnTo(function(rv) {
+			if (rv) {
+				_t.setMessage('Logging in ...');
+			} else {
+				_t.setMessage('Bad credentials. Try again.');
+			}
+			on(_t, 'submit').fire(rv);
+		});
+		this.password.setValue('');
+	}; // submit()
+
+	this.clear = function() {
+		this.username.setValue('');
+		this.password.setValue('');
+	}; // clear()
+
+	on(this.submitButton, 'submit', function() { _t.submit(); });
+
+	this.formNode.onsubmit = function() {
+		_t.submit();
+		return false;
+	}; // form.onsubmit()
+
+	setType(this, 'TG.UI.LoginBox');
+	onready(this).fire();
+}; // TG.UI.LoginBox
+TG.UI.LoginBox.templateMarkup = "\
+	<div data-id='statusBox' style='display: none; color: red;'></div>\
+	<form name='nosubmit' action='nosubmit' data-id='formNode'>\
+	<div class='tg-radio-group' data-id='action'>\
+		<div class='tg-radio' data-value='authenticate' selected='1'>Sign In</div>\
+		<div class='tg-radio' data-value='add'>\
+			Create Account\
+		</div>\
+	</div>\
+	<div class='tg-field' data-id='username' data-name='Username'></div>\
+	<div class='tg-password-field' data-id='password' data-name='Password'>\
+	</div>\
+	<div data-id='submitButton' class='tg-submit-button'></div>\
+	</form>\
+";
+_bindq.push(TG.UI.LoginBox, '.tg-login-box');
+
+
+TG.UI.DocumentList = function() {
+}; // TG.UI.DocumentList
+
+
+TG.UI.TestRun = function() {
+	var _t = this;
+
+	this.header.innerHTML = this.testobject;
+
+	this.processResults = function(rv) {
+		_t.loader.style.display = 'none';
+
+		for (var i = 0; i < rv.failed.length; i++) {
+			_t.appendChild(New(TG.UI.TestResult, rv.failed[i]));
+		}
+
+		for (var i = 0; i < rv.passed.length; i++) {
+			_t.appendChild(New(TG.UI.TestResult, rv.passed[i]));
+		}
+	}; // processResults()
+
+	this.run = function() {
+		this.loader.style.display = '';
+		upon(function() { return TG.UI.TestResult; }, function() {
+			if (!TG.findGlobal(_t.testobject)) {
+				var s = document.createElement('script');
+				s.src = _t.api;
+				s.type = 'text/javascript';
+				document.body.appendChild(s);
+			}
+
+			upon(function() { return TG.findGlobal(_t.testobject); }, function() {
+				TG.findGlobal(_t.testobject).run().returnTo(_t.processResults);
+			});
+		});
+	}; // run()
+
+	setType(this, 'TG.UI.TestRun');
+	onready(this).fire();
+
+	if (this.autorun == 1) { this.run(); }
+
+}; // TG.UI.TestRun()
+TG.UI.TestRun.templateMarkup = "\
+	<h3 data-id='header'>Test Results</h3>\
+	<div data-id='loader' style='color: silver; display: none;'>running ...</div>\
+";
+_bindq.push(TG.UI.TestRun, '.tg-test-run');
+
+
+TG.UI.TestResult = function() {
+	if (this.success) {
+		this.style.color = 'green';
+		this.successString.innerHTML = 'PASS';
+	} else {
+		this.style.color = 'red';
+		this.successString.innerHTML = 'FAIL';
+	}
+
+	var m = '';
+	if (typeof(this.message) == 'string') {
+		m = this.message;
+	} else if (typeof(this.message) !== 'undefined') {
+		m = "<b>" + this.message.message + "</b>\n"
+			+ "<i>" + this.message.fileName + ":"
+				+ this.message.lineNumber
+			+ "</i>\n"
+			+ this.message.stack;
+	}
+	m = m.replace(/\n/g, "<br />\n");
+	this.messageNode.innerHTML = m;
+	
+	if (TG.UI.alternate) {
+		this.style.backgroundColor = '#f0f0ff';
+	}
+	TG.UI.alternate = !TG.UI.alternate;
+
+	setType(this, 'TG.UI.TestResult');
+	onready(this).fire();
+}; // TestResult()
+TG.UI.alternate = false;
+TG.UI.TestResult.templateMarkup = "\
+	<table style='width: 90%;'><tr>\
+		<td data-id='successString' style='width: 30pt;'></td>\
+		<td style='width: auto;'>\
+			<div data-id='name' style='font-weight: bold;'></div>\
+			<div data-id='messageNode'></div>\
+		</td>\
+		<td style='width: 25pt; text-align: right;'>\
+			<span data-id='duration'>0</span>\
+		</td>\
+		<td style='width: 10pt'>\
+			<span style='color: silver;'>ms</span>\
+		</td>\
+		<td style='width: 25pt; text-align: right;'>\
+			<span data-id='reads'>0</span>\
+		</td>\
+		<td style='width: 8pt'>\
+			<span style='color: silver;'>r</span>\
+		</td>\
+		<td style='width: 25pt; text-align: right;'>\
+			<span data-id='writes'>0</span>\
+		</td>\
+		<td style='width: 8pt'>\
+			<span style='color: silver;'>w</span>\
+		</td>\
+		<td style='width: 25pt; text-align: right;'>\
+			<span data-id='deletes'>0</span>\
+		</td>\
+		<td style='width: 8pt'>\
+			<span style='color: silver;'>d</span>\
+		</td>\
+	</tr></table>\
+";
+_bindq.push(TG.UI.TestResult, '.tg-test-result');
+
+});
+
+
+tgmodule.d('./','./tg-color.js',function(module){
+TG.Color = function Color(r, g, b) {
+	this.loadHex = function(c) {
+		// strip off hash symbol, if present
+		var c = c.replace("#", "");
+
+		// pull out individual rgb hex values
+		var r = parseInt(c.substr(0, 2), 16);
+		var g = parseInt(c.substr(2, 2), 16);
+		var b = parseInt(c.substr(4, 2), 16);
+
+		// assign rgb values to 'this'
+		this.loadRGB(r, g, b);
+	}; // loadHex()
+
+
+	this.loadRGB = function(r, g, b) {
+		// set lower limit of 0
+		r = r > 0 ? r : 0;
+		g = g > 0 ? g : 0;
+		b = b > 0 ? b : 0;
+		
+		// set upper limit of 255
+		r = r < 255 ? r : 255;
+		g = g < 255 ? g : 255;
+		b = b < 255 ? b : 255;
+
+		// round and assign
+		this.r = Math.round(r);
+		this.g = Math.round(g);
+		this.b = Math.round(b);
+	}; // loadRGB()
+
+
+	this.loadHSL = function (h, s, l) {
+		// cap S and L and turn them into floats
+		s = Math.min(Math.max(s, 0), 100) / 100;
+		l = Math.min(Math.max(l, 0), 100) / 100;
+
+		// chroma is the "colorfulness" of the final color.
+		// basically, it's saturation reduced by the effect
+		// of lightness.
+		var chroma = (1 - Math.abs(2*l - 1)) * s;
+
+		// lightness component to be added to final vectors
+		var lc = l - (chroma/2);
+	
+		// color vector focal points: the points at which
+		// each color is pure and solitary.
+		var rf = 0;
+		var gf = 120;
+		var bf = 240;
+
+		// color vectors
+		var r = chroma * this.colorVector(rf, h) + lc;
+		var g = chroma * this.colorVector(gf, h) + lc;
+		var b = chroma * this.colorVector(bf, h) + lc;
+
+		this.r = Math.round(r * 255);
+		this.g = Math.round(g * 255);
+		this.b = Math.round(b * 255);
+		
+	}; // loadHSL()
+
+
+	this.loadRGBString = function(c) {
+		this.loadCSS(c);
+	}; // loadRGBString()
+
+
+	this.loadHSLString = function(c) {
+		this.loadCSS(c);
+	}; // loadHSLString()
+
+
+	this.loadCSS = function(c) {
+		var m;
+		if (m = c.match(/rgb\(([0-9]+), ?([0-9]+), ?([0-9]+)/i)) {
+			this.loadRGB(parseInt(m[1]), parseInt(m[2]), parseInt(m[3]));
+		} else if (m = c.match(/hsl\(([0-9]+), ?([0-9]+)%, ?([0-9]+)%/i)) {
+			this.loadHSL(parseInt(m[1]), parseInt(m[2]), parseInt(m[3]));
+		} else if (m = c.match(/#/)) {
+			this.loadHex(c);
+		}
+	}; // loadCSS()
+
+
+	this.toHex = function() {
+		// convert rgb values to hex
+		var ca = [
+			Number(this.r).toString(16),
+			Number(this.g).toString(16),
+			Number(this.b).toString(16)
+		];
+
+		// 0-pad rgb strings
+		for (var i in ca) {
+			if (ca[i].length == 0) {
+				ca[i] = '00';
+			} else if (ca[i].length == 1) {
+				ca[i] = '0' + ca[i];
+			}
+		}
+
+		return '#' + ca.join('');
+
+	}; // toHex()
+
+
+	this.toRGBString = function() {
+		return "rgb(" + this.r + "," + this.g + "," + this.b + ")";
+	}; // toRGBString()
+
+
+	this.toHSLString = function() {
+		var r = this.r / 255;
+		var g = this.g / 255;
+		var b = this.b / 255;
+
+		var maxc = Math.max(r, g, b);
+		var minc = Math.min(r, g, b);
+
+		var chroma = maxc - minc;
+		var l = (maxc + minc)/2;
+
+		var d = (1 - Math.abs(2*l - 1));
+		var s = d > 0 ? chroma / d : 1;
+
+		var h = 0;
+		if (chroma > 0) {
+			if (maxc == r) {
+				h = ((g-b)/chroma) % 6;
+			} else if (maxc == g) {
+				h = (b-r)/chroma + 2
+			} else if (maxc == b) {
+				h = (r-g)/chroma + 4;
+			}
+		}
+		h = Math.round(h * 60);
+
+		s = Math.round(s * 100);
+		l = Math.round(l * 100);
+		return "hsl(" + h + "," + s + "%," + l + "%)";
+	}; // toHSLString()
+
+
+	this.toString = function() {
+		return this.toHex();
+	}; // toString()
+
+
+	this.angleBetween = function(a, b) {
+		var rv = Math.abs(a-b);
+		if (rv > 180) {
+			rv = 360 - rv;
+		}
+		return rv;
+	}; // angleBetween()
+
+
+	this.colorVector = function(focus, angle) {
+		var rv = this.angleBetween(focus, angle);
+		if (rv > 120) {
+			return 0;
+		} else {
+			return 1 - (Math.max(0, rv - 60) / 60);
+		}
+	}; // colorVector()
+
+
+	this.distanceTo = function(c) {
+		// 3d pythagorean theorem.
+		var rd = Math.pow(c.r - this.r, 2);
+		var gd = Math.pow(c.g - this.g, 2);
+		var bd = Math.pow(c.b - this.b, 2);
+		return Math.sqrt(rd + gd + bd);
+	}; // distanceTo()
+
+	var limitPercentage = function(p) {
+		var rv = p === undefined ? 0.5 : p;
+		rv = rv > 0 ? rv : 0;
+		rv = rv < 1 ? rv : 1;
+		return rv;
+	};
+
+
+	var blend = function(a, b, p) {
+		var rv = {};
+		var p = limitPercentage(p);
+		var tp = 1 - p;
+		for (var i in a) {
+			rv[i] = tp * a[i] + p * b[i];
+		}
+		return rv;
+	}; // blend();
+
+
+	this.getBlendedColor = function(color, percent) {
+		var c = blend(this, color, percent);
+		return new Color(c.r, c.g, c.b);
+	}; // getBlendedColor ()
+
+
+	//
+	// EXPERIMENTAL
+
+	this.getPaintMixedColor = function(color, percent) {
+		// var a = RGBtoCMY(this);
+		// var b = RGBtoCMY(color);
+
+		var a = crayola(this);
+		var b = crayola(color);
+
+		var c = blend(a, b, percent);
+
+		// var c = CMYtoRGB(c);
+
+		return new Color(c.r, c.g, c.b);
+	}; // getBlendedColorRYB
+
+
+	var crayola = function(c) {
+		return {
+			r: 210 * c.r/255 + 35 * c.g/255,
+			g: 210 * c.g/255 + 35 * c.b/255,
+			b: 210 * c.b/255 + 35 * c.r/255
+		};
+	}; // crayola()
+
+
+	var RGBtoCMY = function(c) {
+		return {
+			c: 255 - c.r,
+			m: 255 - c.g,
+			y: 255 - c.b 
+		};
+	}; // getCMY()
+
+
+	var CMYtoRGB = function(c) {
+		return {
+			r: 255 - c.c,
+			g: 255 - c.m,
+			b: 255 - c.y
+		};
+	}; // RGBfromCMY()
+
+	// EXPERIMENTAL
+	//
+
+
+	this.r = 0;
+	this.g = 0;
+	this.b = 0;
+
+
+	if (Color.arguments.length == 3) {
+		this.loadRGB(r, g, b);
+	} else {
+		if (r instanceof Color) {
+			this.loadRGB(r.r, r.g, r.b);
+		} else {
+			this.loadCSS(r);
+		}
+	}
+
+}; // Color
+
+module.exports = TG.Color;
+});
+
 
 tgmodule.d('./','./tg-mainloop.js',function(module){
 require('tg-namespace.js');
@@ -1967,5 +3521,11 @@ if (this['__tgq']) {
 tgmodule.setpath('.');
 require('tg-upon.js');
 require('tg-dom.js');
+require('tg-box.js');
+require('tg-nodebox.js');
 require('tg-api.js');
+require('tg-dragdrop.js');
+require('tg-test.js');
+require('tg-ui.js');
+require('tg-color.js');
 require('tg-mainloop.js');

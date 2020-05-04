@@ -1,6 +1,74 @@
+(function() {
+
+	if (this.tgmodule && this.require) {
+		return;
+	}
+
+	var stack = [];
+	var pathstack = ['.'];
+
+	tgmodule = {
+		'start': function(name) {
+			stack.push(name);
+		},
+		'end': function(name) {
+			if (stack[stack.length - 1] === name) {
+				stack.pop();
+			}
+		},
+		'setpath': function(path) {
+			pathstack.push(path === './' ? '.' : path);
+		},
+		'unsetpath': function() {
+			pathstack.pop();
+		},
+		'list': function() {
+			var rv = [];
+			for (var k in require.cache) {
+				rv.push(k);
+			}
+			return rv;
+		},
+		'd': function(p,n,f) {
+			var module = {};
+			this.setpath(p);
+			this.start(n);
+			var src = stack[stack.length - 1];
+			typeof(f) === 'function' ? f(module) : module.exports = f;
+			require.cache[src] = module;
+			this.end(n);
+			this.unsetpath();
+		}
+	};
+
+	require = function(src) {
+		var m = require.cache[require.resolve(src)];
+		if (!m) { throw "`" + src + "` does not exist."; }
+		return m.exports;
+	};
+
+	require.cache = {};
+
+	require.resolve = function(src) {
+		var path = src.split(/\//);
+		var wcpath = pathstack[pathstack.length - 1].split(/\//);
+		while (path[0] == '..') {
+			path.shift();
+			wcpath.pop();
+		}
+		while (path[0] == '.') {
+			path.shift();
+		}
+		return wcpath.join('/') + '/' + path.join('/');
+	}; // resolve()
+
+})();
+
+
 tgmodule.d('./','./tg-upon.js',function(module){
 
 });
+
 
 tgmodule.d('./','./tg-dom.js',function(module){
 (function() {
@@ -274,21 +342,21 @@ tgmodule.d('./','./tg-dom.js',function(module){
 		assert.strictEqual(spans[0], galaxy, "the inserted node IS the created and assigned node");
 	});
 
-	QUnit.test("Bind() attaches identified nodes under target node this `this`", function(assert) {
-		var person;
+	QUnit.test("Bind() attaches identified nodes under target node `this`", function(assert) {
+		var found_person;
 		var found = false;
 
 		var C = function() {
 			found = true;
-			person = this.person;
+			found_person = this.person;
 		};
 
-		fixture.innerHTML = "<div class='c'>Hello <span data-id='person'>Person</span>.</div>";
-		Bind(C, '.c');
-		
+		fixture.innerHTML = "<div class='class-c'>Hello <span data-id='person'>Person</span>.</div>";
+		Bind(C, '.class-c');
+
 		assert.ok(found, "the target node was bound");
-		assert.notStrictEqual(typeof(person), 'undefined', "the person attribute was found");
-		assert.strictEqual(person.innerHTML, 'Person', "the person attribute contained the correct markup");
+		assert.notStrictEqual(typeof(found_person), 'undefined', "the person attribute was found");
+		assert.strictEqual(found_person.innerHTML, 'Person', "the person attribute contained the correct markup");
 
 		var CNodes = getNodes(fixture, C);
 		var cnode = CNodes[0];
@@ -302,11 +370,12 @@ tgmodule.d('./','./tg-dom.js',function(module){
 	QUnit.test("Bind() substitutes nodes from the target in place of the identified templateMarkup nodes", function(assert) {
 
 		var C = function() {}; 
-		C.templateMarkup = "Hello <span data-id='world'>World</span>!";
-		fixture.innerHTML = "<div class='c'><span data-id='world'>Werrrld</span></div>";
-		Bind(C, 'c');
+		C.templateMarkup = "Hi there <span data-id='world'>World</span>!";
+		fixture.innerHTML = "<div class='werld-c'><span data-id='world'>Werrrld</span></div>";
+		Bind(C, '.werld-c');
 
-		assert.ok(fixture.innerHTML.match(/>Werrrld</), "the updated marup has the new Werrrld node in it");
+		assert.ok(fixture.innerHTML.match(/>Hi there/), "the updated markup has Hello in it");
+		assert.ok(fixture.innerHTML.match(/>Werrrld</), "the updated markup has the new Werrrld node in it");
 
 	});
 
@@ -317,8 +386,7 @@ tgmodule.d('./','./tg-dom.js',function(module){
 		fixture.innerHTML = "<div class='c' world='Guy'></div>";
 		Bind(C, '.c');
 
-		assert.ok(fixture.firstChild.innerHTML.match(/Guy/), "the updated markup has 'Guy' in the right spot");
-
+		assert.ok(fixture.firstChild.innerHTML.match(/Guy/), "the updated markup has attr-arg ('Guy') injected into the doc");
 	});
 
 	QUnit.test("Bind() targets an ID'd nodes innerHTML when data-property='innerHTML' is set", function(assert) {
@@ -457,6 +525,16 @@ tgmodule.d('./','./tg-dom.js',function(module){
 		assert.ok(fixture.innerHTML.match(/inner html/), "t:inner was bound");
 	});
 
+	QUnit.test("DomClass gracefully ignores non-ID'd params", function(assert) {
+		var Widget = DomClass("<t:widget><b data-id='x'>default</b></t:widget>");
+
+		// note the widget has spaces / text nodes in it
+		fixture.innerHTML = "<t:widget> <b data-id='x'>value</b> </t:widget>";
+		Bind(fixture);
+
+		assert.ok(true, "things didn't blow up!");
+	});
+
 	// QUnit.test("Bind() supports 3 layers of DomClass nesting", function(assert) {
 	// 	DomClass("<t:nest-one>one html<div data-id='inner'></div></t:nest-one>");
 	// 	DomClass("<t:nest-two>two html</t:nest-two>");
@@ -498,6 +576,7 @@ tgmodule.d('./','./tg-dom.js',function(module){
 
 })();
 });
+
 
 tgmodule.d('./','./tg-api.js',function(module){
 (function() {
@@ -1170,12 +1249,61 @@ tgmodule.d('./','./tg-api.js',function(module){
 })();
 });
 
+
+tgmodule.d('./','./tg-dragdrop.js',function(module){
+
+});
+
+
 tgmodule.d('./','./tg-test.js',function(module){
 
+});
+
+
+tgmodule.d('./','./tg-ui.js',function(module){
+
+});
+
+
+tgmodule.d('./','./tg-observe.js',function(module){
+(function() {
+	QUnit.module('utils');
+
+	QUnit.test("observe() fires not callback when no change", function(assert) {
+		var o = {'abc': 123};
+		var observed = false;
+		TG.observe(o, ['abc'], function() { observed = true; });
+		assert.ok(!observed, "observe callback was not made");
+	});
+
+	QUnit.test("observe() fires callback when property changes", function(assert) {
+		var o = {'abc': 123};
+		var observed = false;
+		TG.observe(o, ['abc'], function() { observed = true; });
+		o.abc = 456;
+		assert.ok(observed, "observe callback was made");
+	});
+
+	QUnit.test("observe() callback gets object, prop, val", function(assert) {
+		var o = {'abc': 123};
+		var observed_data = null;
+		TG.observe(o, ['abc'], function(o, name, value) {
+			observed_data = {o: o, name: name, value: value};
+		});
+		o.abc = 456;
+		assert.equal(observed_data.o, o, "gets object as first arg");
+		assert.equal(observed_data.name, 'abc', "gets prop name as 2nd arg");
+		assert.equal(observed_data.value, 456, "gets prop value as 3rd arg");
+	});
+
+})();
 });
 
 tgmodule.setpath('.');
 require('tg-upon.js');
 require('tg-dom.js');
 require('tg-api.js');
+require('tg-dragdrop.js');
 require('tg-test.js');
+require('tg-ui.js');
+require('tg-observe.js');
