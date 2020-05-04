@@ -78,6 +78,7 @@ upon = function(test, fn) {
 
 });
 
+
 tgmodule.d('./','./tg-namespace.js',function(module){
 TG = this.TG || {};
 TG.API = TG.API || {};
@@ -85,7 +86,35 @@ TG.Data = TG.Data || {};
 TG.UI = TG.UI || {};
 });
 
+
+
+tgmodule.d('./','./tg-observe.js',function(module){
+require('tg-namespace.js');
+
+TG.observe = function(o, props, f, enumerable) {
+	var enumerable = enumerable === undefined ? true : enumerable;
+	props.forEach(function(p) {
+		var innerValue = o[p];
+		Object.defineProperty(o, p, {
+			set: function(v) {
+				innerValue = v;
+				f(o, p, v);
+			},
+			get: function() {
+				return innerValue;
+			},
+			enumerable: enumerable
+		});
+	});
+};
+module.exports = TG.observe;
+});
+
+
 tgmodule.d('./','./tg-events.js',function(module){
+require('tg-observe.js');
+require('tg-upon.js');
+
 TG.Event = function (singleFire, o, a) {
 
 	this.target = o;
@@ -235,6 +264,7 @@ this.onready = function (o, f) {
 
 });
 
+
 tgmodule.d('./','./tg-set.js',function(module){
 TG.Set = function(v) {
 	var _d = {};
@@ -268,6 +298,7 @@ TG.Set = function(v) {
 
 module.exports = TG.Set;
 });
+
 
 tgmodule.d('./','./tg-types.js',function(module){
 Element = window.Element || function () { return true; };
@@ -345,6 +376,7 @@ module.exports = {
 };
 });
 
+
 tgmodule.d('./','./tg-css.js',function(module){
 TG.getClassnames = function(node) {
 	return (new TG.Set(node.className.split(/\s+/))).toArray();
@@ -393,117 +425,6 @@ module.exports = {
 };
 });
 
-tgmodule.d('./','./tg-box.js',function(module){
-TG.Box = function(x, y, w, h, mt, mr, mb, ml) {
-	this.x = x || 0;
-	this.y = y || 0;
-	this.width = w || 0;
-	this.height = h || 0;
-	this.marginTop = mt || 0;
-	this.marginRight = mr || 0;
-	this.marginBottom = mb || 0;
-	this.marginLeft = ml || 0;
-
-	this.contains = function(x, y) {
-		var ex = this.x - Math.ceil(this.marginLeft/2);
-		var ey = this.y - Math.ceil(this.marginTop/2);
-		var eright = this.x + this.width - Math.ceil(this.marginRight/2);
-		var ebottom = this.y + this.height - Math.ceil(this.marginBottom/2);
-		if (x >= ex && x <= eright && y >= ey && y <= ebottom) {
-			return true;
-		} else {
-			return false;
-		}
-	}; // contains()
-
-	this.getBottom = function() {
-		return this.y + this.height;
-	}; // getCorners()
-
-	this.getRight = function() {
-		return this.x + this.width;
-	}; // getCorners()
-
-	this.rangeOverlaps = function(aMin, aMax, bMin, bMax) {
-		return aMin <= bMax && bMin <= aMax;
-	}; // lineOverlaps()
-
-	this.xOverlaps = function(box) {
-		return this.rangeOverlaps(
-			this.x, this.getRight(), box.x, box.getRight()
-		);
-	}; // xOverlaps()
-
-	this.yOverlaps = function(box) {
-		return this.rangeOverlaps(
-			this.y, this.getBottom(), box.y, box.getBottom()
-		);
-	}; // yOverlaps()
-
-	this.overlaps = function(box) {
-		return this.xOverlaps(box) && this.yOverlaps(box);
-	}; // overlaps()
-
-}; // TG.Box()
-
-module.exports = TG.Box;
-});
-
-tgmodule.d('./','./tg-nodebox.js',function(module){
-var Box = require('tg-box.js');
-
-TG.NodeBox = function(n) {
-	this.x = n.offsetLeft;
-	this.y = n.offsetTop;
-
-	var temp = n;
-	while (temp = temp.offsetParent) {
-		this.x += temp.offsetLeft;
-		this.y += temp.offsetTop;
-	}
-
-	this.left = this.x;
-	this.top = this.y;
-	this.width = n.offsetWidth;
-	this.height = n.offsetHeight;
-	this.right = this.x + this.width;
-	this.bottom = this.x + this.height;
-
-	var style = {
-		marginLeft: '', marginRight: '', marginTop: '', marginBottom: ''
-	};
-
-	this.marginLeft = parseInt(style.marginLeft.replace(/[^0-9]/g, '') || '0');
-	this.marginRight = parseInt(style.marginRight.replace(/[^0-9]/g, '') || '0');
-	this.marginTop = parseInt(style.marginTop.replace(/[^0-9]/g, '') || '0');
-	this.marginBottom = parseInt(style.marginBottom.replace(/[^0-9]/g, '') || '0');
-}; // getCoordinates()
-TG.NodeBox.prototype = new Box();
-
-module.exports = TG.NodeBox;
-});
-
-tgmodule.d('./','./tg-observe.js',function(module){
-require('tg-namespace.js');
-
-TG.observe = function(o, props, f, enumerable) {
-	var enumerable = enumerable === undefined ? true : enumerable;
-	props.forEach(function(p) {
-		var innerValue = o[p];
-		Object.defineProperty(o, p, {
-			set: function(v) {
-				innerValue = v;
-				f(o, p, v);
-			},
-			get: function() {
-				return innerValue;
-			},
-			enumerable: enumerable
-		});
-	});
-};
-module.exports = TG.observe;
-});
 
 tgmodule.d('./','./tg-profiler.js',function(module){
 TGProfiler = new function() {
@@ -581,9 +502,6 @@ require('tg-events.js');
 require('tg-set.js');
 require('tg-types.js');
 require('tg-css.js');
-require('tg-box.js');
-require('tg-nodebox.js');
-require('tg-observe.js');
 
 var Profiler = require('tg-profiler.js');
 
@@ -1200,6 +1118,100 @@ this.New = Build;
 console.log('Loaded Bind.');
 });
 
+
+tgmodule.d('./','./tg-box.js',function(module){
+TG.Box = function(x, y, w, h, mt, mr, mb, ml) {
+	this.x = x || 0;
+	this.y = y || 0;
+	this.width = w || 0;
+	this.height = h || 0;
+	this.marginTop = mt || 0;
+	this.marginRight = mr || 0;
+	this.marginBottom = mb || 0;
+	this.marginLeft = ml || 0;
+
+	this.contains = function(x, y) {
+		var ex = this.x - Math.ceil(this.marginLeft/2);
+		var ey = this.y - Math.ceil(this.marginTop/2);
+		var eright = this.x + this.width - Math.ceil(this.marginRight/2);
+		var ebottom = this.y + this.height - Math.ceil(this.marginBottom/2);
+		if (x >= ex && x <= eright && y >= ey && y <= ebottom) {
+			return true;
+		} else {
+			return false;
+		}
+	}; // contains()
+
+	this.getBottom = function() {
+		return this.y + this.height;
+	}; // getCorners()
+
+	this.getRight = function() {
+		return this.x + this.width;
+	}; // getCorners()
+
+	this.rangeOverlaps = function(aMin, aMax, bMin, bMax) {
+		return aMin <= bMax && bMin <= aMax;
+	}; // lineOverlaps()
+
+	this.xOverlaps = function(box) {
+		return this.rangeOverlaps(
+			this.x, this.getRight(), box.x, box.getRight()
+		);
+	}; // xOverlaps()
+
+	this.yOverlaps = function(box) {
+		return this.rangeOverlaps(
+			this.y, this.getBottom(), box.y, box.getBottom()
+		);
+	}; // yOverlaps()
+
+	this.overlaps = function(box) {
+		return this.xOverlaps(box) && this.yOverlaps(box);
+	}; // overlaps()
+
+}; // TG.Box()
+
+module.exports = TG.Box;
+});
+
+
+tgmodule.d('./','./tg-nodebox.js',function(module){
+var Box = require('tg-box.js');
+
+TG.NodeBox = function(n) {
+	this.x = n.offsetLeft;
+	this.y = n.offsetTop;
+
+	var temp = n;
+	while (temp = temp.offsetParent) {
+		this.x += temp.offsetLeft;
+		this.y += temp.offsetTop;
+	}
+
+	this.left = this.x;
+	this.top = this.y;
+	this.width = n.offsetWidth;
+	this.height = n.offsetHeight;
+	this.right = this.x + this.width;
+	this.bottom = this.x + this.height;
+
+	var style = {
+		marginLeft: '', marginRight: '', marginTop: '', marginBottom: ''
+	};
+
+	this.marginLeft = parseInt(style.marginLeft.replace(/[^0-9]/g, '') || '0');
+	this.marginRight = parseInt(style.marginRight.replace(/[^0-9]/g, '') || '0');
+	this.marginTop = parseInt(style.marginTop.replace(/[^0-9]/g, '') || '0');
+	this.marginBottom = parseInt(style.marginBottom.replace(/[^0-9]/g, '') || '0');
+}; // getCoordinates()
+TG.NodeBox.prototype = new Box();
+
+module.exports = TG.NodeBox;
+});
+
+
+
 tgmodule.d('./','./tg-api.js',function(module){
 require('tg-namespace.js');
 require('tg-upon.js');
@@ -1208,30 +1220,38 @@ TG.API.longPolls = TG.API.longPolls || [];
 TG.API.requests = TG.API.requests || {};
 TG.API.APIs = TG.API.APIs || [];
 
-TG.addSlashes = function(s) {
+TG.replaceAll = function(s, map) {
 	s = String(s);
-	s = s.replace(/\\/g, "\\\\");
-	s = s.replace(/\"/g, "\\\"");
-	s = s.replace(/\'/g, "\\\'");
+	map.forEach(function(replacement) {
+		s = s.replace(replacement[0], replacement[1]);
+	});
+	return s;
+};
+
+TG.addSlashes = function(s) {
+	return TG.replaceAll(s, [
+		[/\\/g, "\\\\"],
+		[/\"/g, "\\\""],
+		[/\'/g, "\\\'"],
+	]);
 	return s;
 }; // TG.addSlashes()
 
 
 TG.jsonEscape = function(s) {
-	s = String(s);
-	s = s.replace(/\\/g, "\\\\");
-	s = s.replace(/\"/g, "\\\"");
-	s = s.replace(/\//g, "\\/");
-	s = s.replace(/[\b]/g, "\\b");
-	s = s.replace(/\f/g, "\\f");
-	s = s.replace(/\n/g, "\\n");
-	s = s.replace(/\r/g, "\\r");
-	s = s.replace(/\t/g, "\\t");
-	s = s.replace(/[^\u0020-\u007d]/g, function(s) {
+	return TG.replaceAll(s, [
+		[/\\/g, "\\\\"],
+		[/\"/g, "\\\""],
+		[/\//g, "\\/"],
+		[/[\b]/g, "\\b"],
+		[/\f/g, "\\f"],
+		[/\n/g, "\\n"],
+		[/\r/g, "\\r"],
+		[/\t/g, "\\t"],
+		[/[^\u0020-\u007d]/g, function(s) {
 			return '\\u' + ('0000' + s.charCodeAt(0).toString(16)).slice(-4);
-		}
-	);
-	return s;
+		}]
+	]);
 }; // TG.jsonEscape()
 
 
@@ -1664,14 +1684,6 @@ TG.API.alter = function(t, i, r) {
 }; // TG.API.alter()
 
 
-TG.API.requestToken = function(api) {
-	var tf = document.createElement('iframe');
-	tf.src = api + "?tg-tr=1";
-	tf.style.display = 'none';
-	document.body.appendChild(tf);
-}; // TG.API.requestToken()
-
-
 TG.findGlobal = function(s) {
 	var parts = s.split('.');
 	var rv = window;
@@ -1750,8 +1762,6 @@ TG.copy = function(cc_source, cc_target) {
 			// ignore
 		} else if (typeof(crv[i]) === 'function') {
 			// ignore
-		} else if (isa(crv[i], 'TG.Internal')) {
-			// ignore
 		} else if (isa(cc_source[i], Array)) {
 			if (!isa(crv[i], Array)) {
 				crv[i] = cc_source[i];
@@ -1779,45 +1789,6 @@ TG.copy = function(cc_source, cc_target) {
 }; // TG.copy()
 
 
-TG.BaseObject = function(o) {
-	for (var i in o) {
-		this[i] = o[i];
-	}
-	setType(this, 'TG.BaseObject');
-}; // TG.BaseObject
-
-
-TG.Internal = function(o) {
-	var _t = this;
-	if (typeof(o) == 'function') {
-		_t = o;
-	}
-	TG.BaseObject.apply(_t, arguments);
-	setType(_t, 'TG.Internal');
-	return _t;
-}; // TG.Internal
-
-
-// an object upon which server methods can be called
-TG.ServerObject = function() {
-	TG.BaseObject.apply(this, arguments);
-	setType(this, 'TG.ServerObject');
-}; // TG.ServerObject
-
-
-// an object upon which CRUD ops can occur
-TG.DataObject = function() {
-	TG.ServerObject.apply(this, arguments);
-	setType(this, 'TG.DataObject');
-}; // TG.BaseObject
-
-
-TG.DataObjectReference = function() {
-	TG.ServerObject.apply(this, arguments);
-	setType(this, 'TG.DataObjectReference');
-}; // TG.DataObjectReference
-
-
 TG.FunctionReference = function() {
 	var rv = function() {
 		var method;
@@ -1839,8 +1810,8 @@ TG.FunctionReference = function() {
 	return rv;
 }; // TG.FunctionReference()
 
-TG.Value = function(v) {
 
+TG.Value = function(v) {
 	var value = undefined;
 
 	this.valueOf = function() {
@@ -1857,9 +1828,12 @@ TG.Value = function(v) {
 	}
 
 	setType(this, 'TG.Value');
-
 }; // TG.Value()
 });
+
+
+
+
 
 tgmodule.d('./','./tg-mouse-coords.js',function(module){
 require('tg-box.js');
@@ -1889,667 +1863,654 @@ require('tg-namespace.js');
 require('tg-dom.js');
 require('tg-mouse-coords.js');
 
-upon('Bind', function () {
-	TG.DragDrop = TG.DragDrop || {
+TG.DragDrop = TG.DragDrop || {
 
-		active_draggable: null,
-		drops: [],
-		draggables: [],
+	active_draggable: null,
+	drops: [],
+	draggables: [],
 
-		getCollection: function(o) {
-			if (isa(o, 'TG.Draggable')) {
-				return this.draggables;
-			}
-			if (isa(o, 'TG.SortableList')) {
-				return this.drops;
-			}
-		}, // getList()
-
-		contains: function(o) {
-			var l = this.getCollection(o);
-			for (var i = 0; i < l.length; i++) {
-				if (l[i] == o) return i;
-			}
-			return false;
-		}, // contains()
-
-		objectAt: function (x, y, l) {
-			var l = l || this.draggables;
-			for (var i in l) {
-				if (l[i].contains(x, y)) {
-					return l[i];
-				}
-			}
-			return null;
-		}, // objectAt()
-
-		dropSpotAt: function(x, y) {
-			return this.objectAt(x, y, this.drops);
-		}, // dropSpotAt()
-
-		handleAt: function (x, y, l) {
-			var l = this.draggables;
-			var o = this.objectAt(x, y, l);
-			if (o) {
-				if (o.handleContains(x, y)) {
-					return o;
-				}
-			}
-			return null;
-		}, // handleAt()
-
-		add: function(o) {
-			var c = this.getCollection(o);
-			if (!this.contains(o, c)) c.push(o);
-		}, // add()
-
-		remove: function(o) {
-			var c = this.getCollection(o);
-			var i = this.contains(o, c);
-			if (i) c.splice(i, 1);
-			return i;
-		}, // remove()
-
-		grab: function(mc) {
-			var o = null;
-			if (!this.active_draggable) {
-				o = this.handleAt(mc.x, mc.y);
-				if (o && isa(o, 'TG.Draggable')) {
-					if (typeof (o.enabled) === 'undefined' || o.enabled) {
-						o.pickUp(mc, true);
-						this.active_draggable = o;
-						this.over_spot = this.dropSpotAt(mc.x, mc.y);
-						this.over(mc);
-					}
-				}
-			}
-			return o;
-		}, // grab()
-
-		drag: function(mc) {
-			if (this.active_draggable) {
-				this.active_draggable.drag(mc);
-				this.over(mc);
-				return true;
-			} else {
-				return false;
-			}
-		}, // drag()
-
-		over: function(mc) {
-			var s = mc ? this.dropSpotAt(mc.x, mc.y) : null;
-			if (s == null || s != this.over_spot) {
-				if (this.over_spot) {
-					this.over_spot.dragOut(this.active_draggable);
-				}
-				if (s) {
-					s.dragOver(mc, this.active_draggable);
-				}
-				this.over_spot = s;
-			}
-		}, // over()
-
-		drop: function(mc) {
-			var o = this.active_draggable;
-			if (o) {
-				this.active_draggable = null;
-				this.over(null);
-				var droppedonto = null;
-				var t = this.dropSpotAt(mc.x, mc.y) || o.getContainer();
-				for (var i = 0; i < this.drops.length; i++) {
-					if (this.drops[i] == t) {
-						var ok = this.drops[i].dropOver(o, mc)
-						droppedonto = ok ? t : null;
-					} else {
-						// removes any lingering drop preview
-						this.drops[i].dropOver(null);
-					}
-				}
-				if (droppedonto) {
-					o.drop(mc, droppedonto);
-				} else {
-					o.return();
-				}
-				return true;
-			} else {
-				return false;
-			}
-		} // drop()
-
-	}; // TG.DragDrop
-
-
-	TG.SortableList = function () {
-		this.add = function (item) {
-			if (item == null) { return; }
-
-			if (isa(item, Array)) {
-				for (var i in item) {
-					this.add(item[i]);
-				}
-			} else if (isa(item, 'TG.Draggable')) {
-				var doAdd = true;
-				for (var i in this.objects) {
-					if (this.objects[i] == item) {
-						doAdd = false;
-						break;
-					}
-				}
-
-				if (doAdd) {
-					if (item.container && typeof (item.container.remove) === 'function') {
-						item.container.remove(item);
-					}
-
-					item.index = this.objects.length;
-					this.objects.push(item);
-					item.container = this;
-
-					if (item.parentNode !== this) {
-						this.appendChild(item);
-					}
-				}
-			} else {
-				this.add(New(TG.Draggable(item, [this])));
-			}
-
-		}; // add()
-
-		this.remove = function (item) {
-			for (var i = 0; i < this.objects.length; i++) {
-				if (this.objects[i] === item) {
-					this.objects.splice(i, 1);
-				}
-			}
-			return null;
-		}; // remove()
-
-		this.dragStart = function(item) {
-			var ok = 1;
-
-			if (typeof(this.ondragstart) == 'function') {
-				ok = this.ondragstart(item);
-			}
-
-			if (ok) {
-				this.remove(item);
-				this.drop_preview = this.getDropPreview(item);
-				return this.replaceChild(this.drop_preview, item);
-			}
-
-			return ok;
-		}; // dragStart();
-
-		this.dragOver = function(mc, item) {
-			var ok = 1;
-			if (typeof(this.ondragover) == 'function') {
-				ok = this.ondragover(item);
-			}
-			if (ok) {
-				var ro = TG.DragDrop.objectAt(mc.x, mc.y);
-				if (ro == this) ro = null;
-				var dp = this.getDropPreview(item);
-				dp.move(this, ro);
-			}
-		}; // dragOver()
-
-		this.dragOut = function(item) {
-			this.removeDropPreview();
-			if (typeof(this.ondragout) == 'function') {
-				this.ondragout(item);
-			}
-		}; // dragOut()
-
-		this.dropOver = function(o, mc) {
-			var ok = Boolean(o);
-
-			if (ok && typeof(this.ondropover) === 'function') {
-				ok = this.ondropover(o);
-			}
-
-			if (ok && o) {
-				this.add(o);
-				this.insertBefore(o, this.getDropPreview(o));
-			}
-
-			this.removeDropPreview();
-			return ok;
-		}; // dropOver()
-
-		this.contains = function (x, y) {
-			var coords = new TG.NodeCoords(this);
-			return coords.contains(x, y);
-		}; // contains()
-
-		this.getObjects = function () {
-			return this.objects;
-		}; // getObjects()
-
-		this.getDropPreview = function(item, s) {
-			if (!this.drop_preview) {
-				this.drop_preview = New(TG.DropPreview, {container: this});
-				copyStyle(
-					item,
-					this.drop_preview,
-					TG.DropPreview.relevantStyles
-				);
-				this.appendChild(this.drop_preview);
-			}
-			return this.drop_preview;
-		}; // getDropPreview()
-
-		this.removeDropPreview = function() {
-			if (this.drop_preview) {
-				this.removeChild(this.drop_preview);
-				this.drop_preview = null;
-				return true;
-			} else {
-				return false;
-			}
-		}; // removeDropPreview()
-
-		this.objects = [];
-		this.dragging = null;
-		this.drop_preview = null;
-
-		// container must be positioned either absolutely or relatively
-		// to allow ... ? ... wait ... what?
-		if (this.style.position != 'absolute') {
-			this.style.position = 'relative';
+	getCollection: function(o) {
+		if (isa(o, 'TG.Draggable')) {
+			return this.draggables;
 		}
+		if (isa(o, 'TG.SortableList')) {
+			return this.drops;
+		}
+	}, // getList()
 
-		setType(this, 'TG.SortableList');
+	contains: function(o) {
+		var l = this.getCollection(o);
+		for (var i = 0; i < l.length; i++) {
+			if (l[i] == o) return i;
+		}
+		return false;
+	}, // contains()
 
-		TG.DragDrop.add(this);
-
-	}; // SortableList
-	Bind(TG.SortableList, 'tg-sortable-list');
-	Bind(TG.SortableList, 'tg:sortablelist');
-
-
-	// DropSpot
-	// Spot that holds a single Draggable
-	TG.DropSpot = function() {
-		TG.SortableList.apply(this, arguments);
-
-		/*
-		this.remove = function(o) {
-		}; // remove()
-
-		this.dragStart = function(o) {
-		}; // dragStart()
-
-		this.dragOver = function(o, mc) {
-		}; // dragOver()
-
-		this.drop = function(o) {
-		}; // drop()
-		*/
-
-		this.dragOut = function(item) {
-			if (typeof(this.ondragout) == 'function') {
-				this.ondragout(item);
+	objectAt: function (x, y, l) {
+		var l = l || this.draggables;
+		for (var i in l) {
+			if (l[i].contains(x, y)) {
+				return l[i];
 			}
-		}; // dragOut()
+		}
+		return null;
+	}, // objectAt()
 
-		setType(this, 'TG.DropSpot');
-	}; // TG.DropSpot
-	Bind(TG.DropSpot, 'tg-drop-spot');
+	dropSpotAt: function(x, y) {
+		return this.objectAt(x, y, this.drops);
+	}, // dropSpotAt()
 
-
-
-	// Draggable
-	// Turns a node or object with a .node property into a drag-droppable thing.
-	// The container parameter can either be a Node or an Array of Nodes
-	TG.Draggable = function () {
-		setType(this, 'TG.Draggable');
-
-		this.container = null;
-		this.handle = this.handle || this['data-handle'] || this;
-		this.index = 0;
-		this.dragging = false;
-		this.x_offset = 0;
-		this.y_offset = 0;
-		this.coords = function () { return new TG.NodeCoords(this); };
-		this.old_coords = null;
-		this.drop_preview = null;
-		this.screen_protector = null;
-
-		this.debug = null;
-
-		this.destroy = function () {
-			this.handle.style.cursor = 'default';
-			this.o = null;
-			this.targets = null;
-			this.container = null;
-			this.handle = null;
-		}; // destroy()
-
-		this.contains = function (x, y) {
-			if (!this.dragging) {
-				var nc = new TG.NodeCoords(this);
-				return nc.contains(x, y);
-			} else {
-				return false;
+	handleAt: function (x, y, l) {
+		var l = this.draggables;
+		var o = this.objectAt(x, y, l);
+		if (o) {
+			if (o.handleContains(x, y)) {
+				return o;
 			}
-		}; // contains()
+		}
+		return null;
+	}, // handleAt()
 
-		this.handleContains = function (x, y) {
-			if (!this.dragging) {
-				var nc = new TG.NodeCoords(this.handle);
-				return nc.contains(x, y);
-			} else {
-				return false;
-			}
-		}; // handleContains()
+	add: function(o) {
+		var c = this.getCollection(o);
+		if (!this.contains(o, c)) c.push(o);
+	}, // add()
 
-		this.getContainer = function() {
-			if (!this.container) {
-				if (isa(this.parentNode, 'TG.DropSpot')
-					|| isa(this.parentNode, 'TG.SortableList')
-				) {
-					this.container = this.parentNode;
-					this.container.add(this);
-				} else if (this.sticky || this['data-sticky']) {
-					this.container = New(TG.DropSpot);
-					copyStyle(
-						this,
-						this.container,
-						['display','position','float','clear']
-					);
-					this.parentNode.insertBefore(this.container, this);
-					this.container.add(this);
+	remove: function(o) {
+		var c = this.getCollection(o);
+		var i = this.contains(o, c);
+		if (i) c.splice(i, 1);
+		return i;
+	}, // remove()
+
+	grab: function(mc) {
+		var o = null;
+		if (!this.active_draggable) {
+			o = this.handleAt(mc.x, mc.y);
+			if (o && isa(o, 'TG.Draggable')) {
+				if (typeof (o.enabled) === 'undefined' || o.enabled) {
+					o.pickUp(mc, true);
+					this.active_draggable = o;
+					this.over_spot = this.dropSpotAt(mc.x, mc.y);
+					this.over(mc);
 				}
 			}
-			return this.container;
-		}; // getContainer()
+		}
+		return o;
+	}, // grab()
 
-		this.pickUp = function(mc) {
-			this.screen_protector = New(TG.ScreenProtector);
-			document.body.appendChild(this.screen_protector);
-
-			this.old_coords = new TG.NodeCoords(this);
-			this.x_offset = mc.x - this.coords().x;
-			this.y_offset = mc.y - this.coords().y;
-
-			var _t = this;
-
-			var c = this.getContainer();
-			if (c) {
-				c.dragStart(this);
-				this.returnto = c;
-			}
-
-			// flag it as being dragged.
-			this.dragging = true;
-			this.setStyles();
-			document.body.appendChild(this);
-
-			this.style.left = (mc.x - this.x_offset) + 'px';
-			this.style.top = (mc.y - this.y_offset) + 'px';
-		}; // pickUp()
-
-		this.drag = function (mc) {
-			this.style.left = (mc.x - this.x_offset) + 'px';
-			this.style.top = (mc.y - this.y_offset) + 'px';
-		}; // drag()
-
-		this.drop = function (mc, t) {
-			if (this.screen_protector) {
-				this.screen_protector = this.screen_protector.remove();
-			}
-
-			this.dragging = false;
-			this.setStyles();
-
-			if (typeof(this.ondrop) == 'function') {
-				this.ondrop(mc, t);
-			}
-		}; // drop()
-
-		this.setStyles = function() {
-			if (this.dragging) {	
-				this.style.opacity = 0.5;
-				this.style.filter = 'alpha(opacity=50)';
-				this.style.position = 'absolute';
-				this.style.zIndex = 1000;
-			} else {
-				if (this.getContainer()) {
-					this.style.position = '';
-					this.style.left = '';
-					this.style.top = '';
-					this.style.zIndex = '';
-				}
-
-				this.style.opacity = '';
-				this.style.filter = '';
-
-				this.x_offset = 0;
-				this.y_offset = 0;
-			}
-		}; // setStyles()
-
-		this.return = function() {
-			if (this.returnto) {
-				this.returnto.add(this);
-			}
-			this.drop(null, null);
-		}; // return()
-
-		this.hide = function() {
-			this._display = this.style.display;
-			this.style.display = 'none';
-		}; // hide()
-
-		this.show = function() {
-			this.style.display = this._display || '';
-		}; // show()
-
-		TG.DragDrop.add(this);
-
-	}; // Draggable
-
-	TG.Draggable.compare = function (a, b) {
-		if (a.index > b.index) {
-			return 1;
+	drag: function(mc) {
+		if (this.active_draggable) {
+			this.active_draggable.drag(mc);
+			this.over(mc);
+			return true;
 		} else {
-			return -1;
+			return false;
 		}
-	}; // Draggable.compare()
+	}, // drag()
 
-	Bind(TG.Draggable, 'tg-draggable');
-	Bind(TG.Draggable, 'tg:draggable');
+	over: function(mc) {
+		var s = mc ? this.dropSpotAt(mc.x, mc.y) : null;
+		if (s == null || s != this.over_spot) {
+			if (this.over_spot) {
+				this.over_spot.dragOut(this.active_draggable);
+			}
+			if (s) {
+				s.dragOver(mc, this.active_draggable);
+			}
+			this.over_spot = s;
+		}
+	}, // over()
+
+	drop: function(mc) {
+		var o = this.active_draggable;
+		if (o) {
+			this.active_draggable = null;
+			this.over(null);
+			var droppedonto = null;
+			var t = this.dropSpotAt(mc.x, mc.y) || o.getContainer();
+			for (var i = 0; i < this.drops.length; i++) {
+				if (this.drops[i] == t) {
+					var ok = this.drops[i].dropOver(o, mc)
+					droppedonto = ok ? t : null;
+				} else {
+					// removes any lingering drop preview
+					this.drops[i].dropOver(null);
+				}
+			}
+			if (droppedonto) {
+				o.drop(mc, droppedonto);
+			} else {
+				o.return();
+			}
+			return true;
+		} else {
+			return false;
+		}
+	} // drop()
+
+}; // TG.DragDrop
 
 
-	// DropPreview
-	// The placeholder that's moved around the DropZones during dragging.
-	TG.DropPreview = function () {
-		setType(this, 'TG.DropPreview');
+TG.SortableList = function () {
+	this.add = function (item) {
+		if (item == null) { return; }
 
-		this.index = 0;
+		if (isa(item, Array)) {
+			for (var i in item) {
+				this.add(item[i]);
+			}
+		} else if (isa(item, 'TG.Draggable')) {
+			var doAdd = true;
+			for (var i in this.objects) {
+				if (this.objects[i] == item) {
+					doAdd = false;
+					break;
+				}
+			}
 
-		this.contains = function (x, y) {
+			if (doAdd) {
+				if (item.container && typeof (item.container.remove) === 'function') {
+					item.container.remove(item);
+				}
+
+				item.index = this.objects.length;
+				this.objects.push(item);
+				item.container = this;
+
+				if (item.parentNode !== this) {
+					this.appendChild(item);
+				}
+			}
+		} else {
+			this.add(New(TG.Draggable(item, [this])));
+		}
+
+	}; // add()
+
+	this.remove = function (item) {
+		for (var i = 0; i < this.objects.length; i++) {
+			if (this.objects[i] === item) {
+				this.objects.splice(i, 1);
+			}
+		}
+		return null;
+	}; // remove()
+
+	this.dragStart = function(item) {
+		var ok = 1;
+
+		if (typeof(this.ondragstart) == 'function') {
+			ok = this.ondragstart(item);
+		}
+
+		if (ok) {
+			this.remove(item);
+			this.drop_preview = this.getDropPreview(item);
+			return this.replaceChild(this.drop_preview, item);
+		}
+
+		return ok;
+	}; // dragStart();
+
+	this.dragOver = function(mc, item) {
+		var ok = 1;
+		if (typeof(this.ondragover) == 'function') {
+			ok = this.ondragover(item);
+		}
+		if (ok) {
+			var ro = TG.DragDrop.objectAt(mc.x, mc.y);
+			if (ro == this) ro = null;
+			var dp = this.getDropPreview(item);
+			dp.move(this, ro);
+		}
+	}; // dragOver()
+
+	this.dragOut = function(item) {
+		this.removeDropPreview();
+		if (typeof(this.ondragout) == 'function') {
+			this.ondragout(item);
+		}
+	}; // dragOut()
+
+	this.dropOver = function(o, mc) {
+		var ok = Boolean(o);
+
+		if (ok && typeof(this.ondropover) === 'function') {
+			ok = this.ondropover(o);
+		}
+
+		if (ok && o) {
+			this.add(o);
+			this.insertBefore(o, this.getDropPreview(o));
+		}
+
+		this.removeDropPreview();
+		return ok;
+	}; // dropOver()
+
+	this.contains = function (x, y) {
+		var coords = new TG.NodeCoords(this);
+		return coords.contains(x, y);
+	}; // contains()
+
+	this.getObjects = function () {
+		return this.objects;
+	}; // getObjects()
+
+	this.getDropPreview = function(item, s) {
+		if (!this.drop_preview) {
+			this.drop_preview = New(TG.DropPreview, {container: this});
+			copyStyle(
+				item,
+				this.drop_preview,
+				TG.DropPreview.relevantStyles
+			);
+			this.appendChild(this.drop_preview);
+		}
+		return this.drop_preview;
+	}; // getDropPreview()
+
+	this.removeDropPreview = function() {
+		if (this.drop_preview) {
+			this.removeChild(this.drop_preview);
+			this.drop_preview = null;
+			return true;
+		} else {
+			return false;
+		}
+	}; // removeDropPreview()
+
+	this.objects = [];
+	this.dragging = null;
+	this.drop_preview = null;
+
+	// container must be positioned either absolutely or relatively
+	// to allow ... ? ... wait ... what?
+	if (this.style.position != 'absolute') {
+		this.style.position = 'relative';
+	}
+
+	setType(this, 'TG.SortableList');
+
+	TG.DragDrop.add(this);
+
+}; // SortableList
+Bind(TG.SortableList, 'tg-sortable-list');
+Bind(TG.SortableList, 'tg:sortablelist');
+
+
+// DropSpot
+// Spot that holds a single Draggable
+TG.DropSpot = function() {
+	TG.SortableList.apply(this, arguments);
+
+	this.dragOut = function(item) {
+		if (typeof(this.ondragout) == 'function') {
+			this.ondragout(item);
+		}
+	}; // dragOut()
+
+	setType(this, 'TG.DropSpot');
+}; // TG.DropSpot
+Bind(TG.DropSpot, 'tg-drop-spot');
+
+
+
+// Draggable
+// Turns a node or object with a .node property into a drag-droppable thing.
+// The container parameter can either be a Node or an Array of Nodes
+TG.Draggable = function () {
+	setType(this, 'TG.Draggable');
+
+	this.container = null;
+	this.handle = this.handle || this['data-handle'] || this;
+	this.index = 0;
+	this.dragging = false;
+	this.x_offset = 0;
+	this.y_offset = 0;
+	this.coords = function () { return new TG.NodeCoords(this); };
+	this.old_coords = null;
+	this.drop_preview = null;
+	this.screen_protector = null;
+
+	this.debug = null;
+
+	this.destroy = function () {
+		this.handle.style.cursor = 'default';
+		this.o = null;
+		this.targets = null;
+		this.container = null;
+		this.handle = null;
+	}; // destroy()
+
+	this.contains = function (x, y) {
+		if (!this.dragging) {
 			var nc = new TG.NodeCoords(this);
 			return nc.contains(x, y);
-		}; // contains()
+		} else {
+			return false;
+		}
+	}; // contains()
 
-		this.move = function (container, o) {
-			/*
-			var inspace = false;
-			if (!this.drop_preview.contains(mc.x, mc.y)) {
-				inspace = true;
-				var o = DragDrop.objectAt(mc.x, mc.y);
-				var oc = o.getContainer();
-				for (var i = 0; i < this.targets.length; i++) {
-					if (this.targets[i] == oc) {
-						this.drop_preview.move(oc, o);
-						inspace = false;
-					}
-				}
-			}
+	this.handleContains = function (x, y) {
+		if (!this.dragging) {
+			var nc = new TG.NodeCoords(this.handle);
+			return nc.contains(x, y);
+		} else {
+			return false;
+		}
+	}; // handleContains()
 
-			if (
-				inspace
-				&& (this.prefer_home || this.preferHome)
-				&& isa(this.home, Node)
+	this.getContainer = function() {
+		if (!this.container) {
+			if (isa(this.parentNode, 'TG.DropSpot')
+				|| isa(this.parentNode, 'TG.SortableList')
 			) {
-				this.drop_preview.move(this.home);
+				this.container = this.parentNode;
+				this.container.add(this);
+			} else if (this.sticky || this['data-sticky']) {
+				this.container = New(TG.DropSpot);
+				copyStyle(
+					this,
+					this.container,
+					['display','position','float','clear']
+				);
+				this.parentNode.insertBefore(this.container, this);
+				this.container.add(this);
 			}
+		}
+		return this.container;
+	}; // getContainer()
 
-			if (o === this) {
-				return;
-			}
+	this.pickUp = function(mc) {
+		this.screen_protector = New(TG.ScreenProtector);
+		document.body.appendChild(this.screen_protector);
 
-			if (container !== this.container) {
-				if (typeof (container.onmoveover) === 'function') {
-					container.onmoveover(o);
-				}
-				if (this.container && typeof (this.container.onmoveout) === 'function') {
-					this.container.onmoveout(o);
-				}
-			}
+		this.old_coords = new TG.NodeCoords(this);
+		this.x_offset = mc.x - this.coords().x;
+		this.y_offset = mc.y - this.coords().y;
 
-			if (o) {
-				this.container = container;
-				if (o.previousSibling === this) {
-					o.parentNode.insertBefore(this, o.nextSibling);
-					this.index = o.index + 1;
-				} else {
-					o.parentNode.insertBefore(this, o);
-					this.index = o.index;
-				}
-			} else if (container && isa(container, Node)) {
-				this.container = container;
-				container.appendChild(this);
-				for (var i = 0; i < container.objects.length; i++) {
-					if (this.index <= container.objects.length) {
-						this.index = container.objects.length;
-					}
-				}
-				this.index += 1;
-			}
-			*/
-		}; // move()
+		var _t = this;
 
-		this.style.border = '2px solid green';
-
-	}; // TG.DropPreview
-	TG.DropPreview.templateMarkup = "&nbsp;";
-	TG.DropPreview.relevantStyles = [
-		'display','position','width','height','top','left','border-width','margin',
-		'padding', 'float','clear'
-	];
-	Bind(TG.DropPreview, 'tg-drop-preview');
-
-
-	// ScreenProtector
-	// Invisible node that covers the screen during drag-dropping to prevent
-	// inadvertent text highlighting and image or link dragging.
-	TG.ScreenProtector = function () {
-
-		setType(this, 'TG.ScreenProtector');
-
-		this.remove = function () {
-			document.body.removeChild(this);
-			return null;
-		} // remove()
-
-	}; // ScreenProtector
-	TG.ScreenProtector.templateMarkup = " ";
-	Bind(TG.ScreenProtector, 'tg-screen-protector');
-
-
-	// TG.NodeCoords
-	// Determines and contains the coordinates for a node.
-	TG.NodeCoords = function (n) {
-
-		this.x = n.offsetLeft;
-		this.y = n.offsetTop;
-
-		var temp = n;
-		while (temp = temp.offsetParent) {
-			this.x += temp.offsetLeft;
-			this.y += temp.offsetTop;
+		var c = this.getContainer();
+		if (c) {
+			c.dragStart(this);
+			this.returnto = c;
 		}
 
-		this.left = this.x;
-		this.top = this.y;
+		// flag it as being dragged.
+		this.dragging = true;
+		this.setStyles();
+		document.body.appendChild(this);
 
-		this.width = n.offsetWidth;
-		this.right = this.x + n.offsetWidth;
+		this.style.left = (mc.x - this.x_offset) + 'px';
+		this.style.top = (mc.y - this.y_offset) + 'px';
+	}; // pickUp()
 
-		this.height = n.offsetHeight;
-		this.bottom = this.y + n.offsetHeight;
+	this.drag = function (mc) {
+		this.style.left = (mc.x - this.x_offset) + 'px';
+		this.style.top = (mc.y - this.y_offset) + 'px';
+	}; // drag()
 
-		var style = {
-			marginLeft: "", marginRight: "",
-			marginTop: "", marginBottom: ""
-		};
-
-		if (n.currentStyle) {
-			style = n.currentStyle;
-		} else if (window.getComputedStyle) {
-			style = getComputedStyle(n);
+	this.drop = function (mc, t) {
+		if (this.screen_protector) {
+			this.screen_protector = this.screen_protector.remove();
 		}
 
-		this.marginLeft =
-			parseInt(style.marginLeft.replace(/[^0-9]/g, '') || '0');
-		this.marginRight =
-			parseInt(style.marginRight.replace(/[^0-9]/g, '') || '0');
-		this.marginTop =
-			parseInt(style.marginTop.replace(/[^0-9]/g, '') || '0');
-		this.marginBottom =
-			parseInt(style.marginBottom.replace(/[^0-9]/g, '') || '0');
+		this.dragging = false;
+		this.setStyles();
 
-		this.contains = function (x, y) {
-			var ex = this.x - Math.ceil(this.marginLeft / 2);
-			var ey = this.y - Math.ceil(this.marginTop / 2);
-			var eright = this.right * 1 + Math.ceil(this.marginRight / 2);
-			var ebottom = this.bottom * 1 + Math.ceil(this.marginBottom / 2);
-			if (x >= ex && x <= eright && y >= ey && y <= ebottom) {
-				return true;
+		if (typeof(this.ondrop) == 'function') {
+			this.ondrop(mc, t);
+		}
+	}; // drop()
+
+	this.setStyles = function() {
+		if (this.dragging) {	
+			this.style.opacity = 0.5;
+			this.style.filter = 'alpha(opacity=50)';
+			this.style.position = 'absolute';
+			this.style.zIndex = 1000;
+		} else {
+			if (this.getContainer()) {
+				this.style.position = '';
+				this.style.left = '';
+				this.style.top = '';
+				this.style.zIndex = '';
+			}
+
+			this.style.opacity = '';
+			this.style.filter = '';
+
+			this.x_offset = 0;
+			this.y_offset = 0;
+		}
+	}; // setStyles()
+
+	this.return = function() {
+		if (this.returnto) {
+			this.returnto.add(this);
+		}
+		this.drop(null, null);
+	}; // return()
+
+	this.hide = function() {
+		this._display = this.style.display;
+		this.style.display = 'none';
+	}; // hide()
+
+	this.show = function() {
+		this.style.display = this._display || '';
+	}; // show()
+
+	TG.DragDrop.add(this);
+
+}; // Draggable
+
+TG.Draggable.compare = function (a, b) {
+	if (a.index > b.index) {
+		return 1;
+	} else {
+		return -1;
+	}
+}; // Draggable.compare()
+
+Bind(TG.Draggable, 'tg-draggable');
+Bind(TG.Draggable, 'tg:draggable');
+
+
+// DropPreview
+// The placeholder that's moved around the DropZones during dragging.
+TG.DropPreview = function () {
+	setType(this, 'TG.DropPreview');
+
+	this.index = 0;
+
+	this.contains = function (x, y) {
+		var nc = new TG.NodeCoords(this);
+		return nc.contains(x, y);
+	}; // contains()
+
+	// wait. what is this? why is it commented out? what was it supposed to
+	// accomplish to begin with!?
+	this.move = function (container, o) {
+		/*
+		var inspace = false;
+		if (!this.drop_preview.contains(mc.x, mc.y)) {
+			inspace = true;
+			var o = DragDrop.objectAt(mc.x, mc.y);
+			var oc = o.getContainer();
+			for (var i = 0; i < this.targets.length; i++) {
+				if (this.targets[i] == oc) {
+					this.drop_preview.move(oc, o);
+					inspace = false;
+				}
+			}
+		}
+
+		if (
+			inspace
+			&& (this.prefer_home || this.preferHome)
+			&& isa(this.home, Node)
+		) {
+			this.drop_preview.move(this.home);
+		}
+
+		if (o === this) {
+			return;
+		}
+
+		if (container !== this.container) {
+			if (typeof (container.onmoveover) === 'function') {
+				container.onmoveover(o);
+			}
+			if (this.container && typeof (this.container.onmoveout) === 'function') {
+				this.container.onmoveout(o);
+			}
+		}
+
+		if (o) {
+			this.container = container;
+			if (o.previousSibling === this) {
+				o.parentNode.insertBefore(this, o.nextSibling);
+				this.index = o.index + 1;
 			} else {
-				return false;
+				o.parentNode.insertBefore(this, o);
+				this.index = o.index;
 			}
-		}; // contains()
-
-	}; // TG.NodeCoords
-
-
-	document.onmousedown = function (evt) {
-		var e = evt || window.event;
-		var mc = new TG.MouseCoords(e);
-		if (TG.DragDrop.grab(mc) && typeof(e.preventDefault) == 'function') {
-			e.preventDefault();
+		} else if (container && isa(container, Node)) {
+			this.container = container;
+			container.appendChild(this);
+			for (var i = 0; i < container.objects.length; i++) {
+				if (this.index <= container.objects.length) {
+					this.index = container.objects.length;
+				}
+			}
+			this.index += 1;
 		}
-	}; // document.onmousedown()
+		*/
+	}; // move()
 
-	document.onmousemove = function (evt) {
-		var e = evt || window.event;
-		var mc = new TG.MouseCoords(e);
-		if (TG.DragDrop.drag(mc) && typeof(e.preventDefault) == 'function') {
-			e.preventDefault();
+	this.style.border = '2px solid green';
+
+}; // TG.DropPreview
+TG.DropPreview.templateMarkup = "&nbsp;";
+TG.DropPreview.relevantStyles = [
+	'display','position','width','height','top','left','border-width','margin',
+	'padding', 'float','clear'
+];
+Bind(TG.DropPreview, 'tg-drop-preview');
+
+
+// ScreenProtector
+// Invisible node that covers the screen during drag-dropping to prevent
+// inadvertent text highlighting and image or link dragging.
+TG.ScreenProtector = function () {
+
+	setType(this, 'TG.ScreenProtector');
+
+	this.remove = function () {
+		document.body.removeChild(this);
+		return null;
+	} // remove()
+
+}; // ScreenProtector
+TG.ScreenProtector.templateMarkup = " ";
+Bind(TG.ScreenProtector, 'tg-screen-protector');
+
+
+// TG.NodeCoords
+// Determines and contains the coordinates for a node.
+TG.NodeCoords = function (n) {
+
+	this.x = n.offsetLeft;
+	this.y = n.offsetTop;
+
+	var temp = n;
+	while (temp = temp.offsetParent) {
+		this.x += temp.offsetLeft;
+		this.y += temp.offsetTop;
+	}
+
+	this.left = this.x;
+	this.top = this.y;
+
+	this.width = n.offsetWidth;
+	this.right = this.x + n.offsetWidth;
+
+	this.height = n.offsetHeight;
+	this.bottom = this.y + n.offsetHeight;
+
+	var style = {
+		marginLeft: "", marginRight: "",
+		marginTop: "", marginBottom: ""
+	};
+
+	if (n.currentStyle) {
+		style = n.currentStyle;
+	} else if (window.getComputedStyle) {
+		style = getComputedStyle(n);
+	}
+
+	this.marginLeft =
+		parseInt(style.marginLeft.replace(/[^0-9]/g, '') || '0');
+	this.marginRight =
+		parseInt(style.marginRight.replace(/[^0-9]/g, '') || '0');
+	this.marginTop =
+		parseInt(style.marginTop.replace(/[^0-9]/g, '') || '0');
+	this.marginBottom =
+		parseInt(style.marginBottom.replace(/[^0-9]/g, '') || '0');
+
+	this.contains = function (x, y) {
+		var ex = this.x - Math.ceil(this.marginLeft / 2);
+		var ey = this.y - Math.ceil(this.marginTop / 2);
+		var eright = this.right * 1 + Math.ceil(this.marginRight / 2);
+		var ebottom = this.bottom * 1 + Math.ceil(this.marginBottom / 2);
+		if (x >= ex && x <= eright && y >= ey && y <= ebottom) {
+			return true;
+		} else {
+			return false;
 		}
-	}; // document.onmousemove()
+	}; // contains()
 
-	document.onmouseup = function (evt) {
-		var e = evt || window.event;
-		var mc = new TG.MouseCoords(e);
-		if (TG.DragDrop.drop(mc) && typeof(e.preventDefault) == 'function') {
-			e.preventDefault();
-		}
-	}; // document.onmouseup()
+}; // TG.NodeCoords
 
-	document.ontouchstart = document.onmousedown;
-	document.ontouchmove = document.onmousemove;
-	document.ontouchend = document.onmouseup;
-	document.ontouchleave = document.onmouseup;
-	document.ontouchcancel = document.onmouseup;
 
-	console.log('TG.DragDrop loaded. (2)');
+document.onmousedown = function (evt) {
+	var e = evt || window.event;
+	var mc = new TG.MouseCoords(e);
+	if (TG.DragDrop.grab(mc) && typeof(e.preventDefault) == 'function') {
+		e.preventDefault();
+	}
+}; // document.onmousedown()
 
+document.onmousemove = function (evt) {
+	var e = evt || window.event;
+	var mc = new TG.MouseCoords(e);
+	if (TG.DragDrop.drag(mc) && typeof(e.preventDefault) == 'function') {
+		e.preventDefault();
+	}
+}; // document.onmousemove()
+
+document.onmouseup = function (evt) {
+	var e = evt || window.event;
+	var mc = new TG.MouseCoords(e);
+	if (TG.DragDrop.drop(mc) && typeof(e.preventDefault) == 'function') {
+		e.preventDefault();
+	}
+}; // document.onmouseup()
+
+document.ontouchstart = document.onmousedown;
+document.ontouchmove = document.onmousemove;
+document.ontouchend = document.onmouseup;
+document.ontouchleave = document.onmouseup;
+document.ontouchcancel = document.onmouseup;
+
+console.log('TG.DragDrop loaded. (2)');
 });
-});
+
+
 
 tgmodule.d('./','./tg-test.js',function(module){
 require('tg-upon.js');
@@ -2663,6 +2624,9 @@ TG.assert = function(passed, failure_description) {
 }; // TG.assert()
 
 });
+
+
+
 
 tgmodule.d('./','./tg-ui.js',function(module){
 require('tg-upon.js');
@@ -3088,6 +3052,279 @@ _bindq.push(TG.UI.TestResult, '.tg-test-result');
 
 });
 
+
+tgmodule.d('./','./tg-color.js',function(module){
+TG.Color = function Color(r, g, b) {
+	this.loadHex = function(c) {
+		// strip off hash symbol, if present
+		var c = c.replace("#", "");
+
+		// pull out individual rgb hex values
+		var r = parseInt(c.substr(0, 2), 16);
+		var g = parseInt(c.substr(2, 2), 16);
+		var b = parseInt(c.substr(4, 2), 16);
+
+		// assign rgb values to 'this'
+		this.loadRGB(r, g, b);
+	}; // loadHex()
+
+
+	this.loadRGB = function(r, g, b) {
+		// set lower limit of 0
+		r = r > 0 ? r : 0;
+		g = g > 0 ? g : 0;
+		b = b > 0 ? b : 0;
+		
+		// set upper limit of 255
+		r = r < 255 ? r : 255;
+		g = g < 255 ? g : 255;
+		b = b < 255 ? b : 255;
+
+		// round and assign
+		this.r = Math.round(r);
+		this.g = Math.round(g);
+		this.b = Math.round(b);
+	}; // loadRGB()
+
+
+	this.loadHSL = function (h, s, l) {
+		// cap S and L and turn them into floats
+		s = Math.min(Math.max(s, 0), 100) / 100;
+		l = Math.min(Math.max(l, 0), 100) / 100;
+
+		// chroma is the "colorfulness" of the final color.
+		// basically, it's saturation reduced by the effect
+		// of lightness.
+		var chroma = (1 - Math.abs(2*l - 1)) * s;
+
+		// lightness component to be added to final vectors
+		var lc = l - (chroma/2);
+	
+		// color vector focal points: the points at which
+		// each color is pure and solitary.
+		var rf = 0;
+		var gf = 120;
+		var bf = 240;
+
+		// color vectors
+		var r = chroma * this.colorVector(rf, h) + lc;
+		var g = chroma * this.colorVector(gf, h) + lc;
+		var b = chroma * this.colorVector(bf, h) + lc;
+
+		this.r = Math.round(r * 255);
+		this.g = Math.round(g * 255);
+		this.b = Math.round(b * 255);
+		
+	}; // loadHSL()
+
+
+	this.loadRGBString = function(c) {
+		this.loadCSS(c);
+	}; // loadRGBString()
+
+
+	this.loadHSLString = function(c) {
+		this.loadCSS(c);
+	}; // loadHSLString()
+
+
+	this.loadCSS = function(c) {
+		var m;
+		if (m = c.match(/rgb\(([0-9]+), ?([0-9]+), ?([0-9]+)/i)) {
+			this.loadRGB(parseInt(m[1]), parseInt(m[2]), parseInt(m[3]));
+		} else if (m = c.match(/hsl\(([0-9]+), ?([0-9]+)%, ?([0-9]+)%/i)) {
+			this.loadHSL(parseInt(m[1]), parseInt(m[2]), parseInt(m[3]));
+		} else if (m = c.match(/#/)) {
+			this.loadHex(c);
+		}
+	}; // loadCSS()
+
+
+	this.toHex = function() {
+		// convert rgb values to hex
+		var ca = [
+			Number(this.r).toString(16),
+			Number(this.g).toString(16),
+			Number(this.b).toString(16)
+		];
+
+		// 0-pad rgb strings
+		for (var i in ca) {
+			if (ca[i].length == 0) {
+				ca[i] = '00';
+			} else if (ca[i].length == 1) {
+				ca[i] = '0' + ca[i];
+			}
+		}
+
+		return '#' + ca.join('');
+
+	}; // toHex()
+
+
+	this.toRGBString = function() {
+		return "rgb(" + this.r + "," + this.g + "," + this.b + ")";
+	}; // toRGBString()
+
+
+	this.toHSLString = function() {
+		var r = this.r / 255;
+		var g = this.g / 255;
+		var b = this.b / 255;
+
+		var maxc = Math.max(r, g, b);
+		var minc = Math.min(r, g, b);
+
+		var chroma = maxc - minc;
+		var l = (maxc + minc)/2;
+
+		var d = (1 - Math.abs(2*l - 1));
+		var s = d > 0 ? chroma / d : 1;
+
+		var h = 0;
+		if (chroma > 0) {
+			if (maxc == r) {
+				h = ((g-b)/chroma) % 6;
+			} else if (maxc == g) {
+				h = (b-r)/chroma + 2
+			} else if (maxc == b) {
+				h = (r-g)/chroma + 4;
+			}
+		}
+		h = Math.round(h * 60);
+
+		s = Math.round(s * 100);
+		l = Math.round(l * 100);
+		return "hsl(" + h + "," + s + "%," + l + "%)";
+	}; // toHSLString()
+
+
+	this.toString = function() {
+		return this.toHex();
+	}; // toString()
+
+
+	this.angleBetween = function(a, b) {
+		var rv = Math.abs(a-b);
+		if (rv > 180) {
+			rv = 360 - rv;
+		}
+		return rv;
+	}; // angleBetween()
+
+
+	this.colorVector = function(focus, angle) {
+		var rv = this.angleBetween(focus, angle);
+		if (rv > 120) {
+			return 0;
+		} else {
+			return 1 - (Math.max(0, rv - 60) / 60);
+		}
+	}; // colorVector()
+
+
+	this.distanceTo = function(c) {
+		// 3d pythagorean theorem.
+		var rd = Math.pow(c.r - this.r, 2);
+		var gd = Math.pow(c.g - this.g, 2);
+		var bd = Math.pow(c.b - this.b, 2);
+		return Math.sqrt(rd + gd + bd);
+	}; // distanceTo()
+
+	var limitPercentage = function(p) {
+		var rv = p === undefined ? 0.5 : p;
+		rv = rv > 0 ? rv : 0;
+		rv = rv < 1 ? rv : 1;
+		return rv;
+	};
+
+
+	var blend = function(a, b, p) {
+		var rv = {};
+		var p = limitPercentage(p);
+		var tp = 1 - p;
+		for (var i in a) {
+			rv[i] = tp * a[i] + p * b[i];
+		}
+		return rv;
+	}; // blend();
+
+
+	this.getBlendedColor = function(color, percent) {
+		var c = blend(this, color, percent);
+		return new Color(c.r, c.g, c.b);
+	}; // getBlendedColor ()
+
+
+	//
+	// EXPERIMENTAL
+
+	this.getPaintMixedColor = function(color, percent) {
+		// var a = RGBtoCMY(this);
+		// var b = RGBtoCMY(color);
+
+		var a = crayola(this);
+		var b = crayola(color);
+
+		var c = blend(a, b, percent);
+
+		// var c = CMYtoRGB(c);
+
+		return new Color(c.r, c.g, c.b);
+	}; // getBlendedColorRYB
+
+
+	var crayola = function(c) {
+		return {
+			r: 210 * c.r/255 + 35 * c.g/255,
+			g: 210 * c.g/255 + 35 * c.b/255,
+			b: 210 * c.b/255 + 35 * c.r/255
+		};
+	}; // crayola()
+
+
+	var RGBtoCMY = function(c) {
+		return {
+			c: 255 - c.r,
+			m: 255 - c.g,
+			y: 255 - c.b 
+		};
+	}; // getCMY()
+
+
+	var CMYtoRGB = function(c) {
+		return {
+			r: 255 - c.c,
+			g: 255 - c.m,
+			b: 255 - c.y
+		};
+	}; // RGBfromCMY()
+
+	// EXPERIMENTAL
+	//
+
+
+	this.r = 0;
+	this.g = 0;
+	this.b = 0;
+
+
+	if (Color.arguments.length == 3) {
+		this.loadRGB(r, g, b);
+	} else {
+		if (r instanceof Color) {
+			this.loadRGB(r.r, r.g, r.b);
+		} else {
+			this.loadCSS(r);
+		}
+	}
+
+}; // Color
+
+module.exports = TG.Color;
+});
+
+
 tgmodule.d('./','./tg-mainloop.js',function(module){
 require('tg-namespace.js');
 
@@ -3284,8 +3521,11 @@ if (this['__tgq']) {
 tgmodule.setpath('.');
 require('tg-upon.js');
 require('tg-dom.js');
+require('tg-box.js');
+require('tg-nodebox.js');
 require('tg-api.js');
 require('tg-dragdrop.js');
 require('tg-test.js');
 require('tg-ui.js');
+require('tg-color.js');
 require('tg-mainloop.js');

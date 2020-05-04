@@ -4,9 +4,6 @@ require('tg-events.js');
 require('tg-set.js');
 require('tg-types.js');
 require('tg-css.js');
-require('tg-box.js');
-require('tg-nodebox.js');
-require('tg-observe.js');
 
 var Profiler = require('tg-profiler.js');
 

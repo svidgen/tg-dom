@@ -5,30 +5,38 @@ TG.API.longPolls = TG.API.longPolls || [];
 TG.API.requests = TG.API.requests || {};
 TG.API.APIs = TG.API.APIs || [];
 
-TG.addSlashes = function(s) {
+TG.replaceAll = function(s, map) {
 	s = String(s);
-	s = s.replace(/\\/g, "\\\\");
-	s = s.replace(/\"/g, "\\\"");
-	s = s.replace(/\'/g, "\\\'");
+	map.forEach(function(replacement) {
+		s = s.replace(replacement[0], replacement[1]);
+	});
+	return s;
+};
+
+TG.addSlashes = function(s) {
+	return TG.replaceAll(s, [
+		[/\\/g, "\\\\"],
+		[/\"/g, "\\\""],
+		[/\'/g, "\\\'"],
+	]);
 	return s;
 }; // TG.addSlashes()
 
 
 TG.jsonEscape = function(s) {
-	s = String(s);
-	s = s.replace(/\\/g, "\\\\");
-	s = s.replace(/\"/g, "\\\"");
-	s = s.replace(/\//g, "\\/");
-	s = s.replace(/[\b]/g, "\\b");
-	s = s.replace(/\f/g, "\\f");
-	s = s.replace(/\n/g, "\\n");
-	s = s.replace(/\r/g, "\\r");
-	s = s.replace(/\t/g, "\\t");
-	s = s.replace(/[^\u0020-\u007d]/g, function(s) {
+	return TG.replaceAll(s, [
+		[/\\/g, "\\\\"],
+		[/\"/g, "\\\""],
+		[/\//g, "\\/"],
+		[/[\b]/g, "\\b"],
+		[/\f/g, "\\f"],
+		[/\n/g, "\\n"],
+		[/\r/g, "\\r"],
+		[/\t/g, "\\t"],
+		[/[^\u0020-\u007d]/g, function(s) {
 			return '\\u' + ('0000' + s.charCodeAt(0).toString(16)).slice(-4);
-		}
-	);
-	return s;
+		}]
+	]);
 }; // TG.jsonEscape()
 
 
@@ -461,14 +469,6 @@ TG.API.alter = function(t, i, r) {
 }; // TG.API.alter()
 
 
-TG.API.requestToken = function(api) {
-	var tf = document.createElement('iframe');
-	tf.src = api + "?tg-tr=1";
-	tf.style.display = 'none';
-	document.body.appendChild(tf);
-}; // TG.API.requestToken()
-
-
 TG.findGlobal = function(s) {
 	var parts = s.split('.');
 	var rv = window;
@@ -547,8 +547,6 @@ TG.copy = function(cc_source, cc_target) {
 			// ignore
 		} else if (typeof(crv[i]) === 'function') {
 			// ignore
-		} else if (isa(crv[i], 'TG.Internal')) {
-			// ignore
 		} else if (isa(cc_source[i], Array)) {
 			if (!isa(crv[i], Array)) {
 				crv[i] = cc_source[i];
@@ -576,45 +574,6 @@ TG.copy = function(cc_source, cc_target) {
 }; // TG.copy()
 
 
-TG.BaseObject = function(o) {
-	for (var i in o) {
-		this[i] = o[i];
-	}
-	setType(this, 'TG.BaseObject');
-}; // TG.BaseObject
-
-
-TG.Internal = function(o) {
-	var _t = this;
-	if (typeof(o) == 'function') {
-		_t = o;
-	}
-	TG.BaseObject.apply(_t, arguments);
-	setType(_t, 'TG.Internal');
-	return _t;
-}; // TG.Internal
-
-
-// an object upon which server methods can be called
-TG.ServerObject = function() {
-	TG.BaseObject.apply(this, arguments);
-	setType(this, 'TG.ServerObject');
-}; // TG.ServerObject
-
-
-// an object upon which CRUD ops can occur
-TG.DataObject = function() {
-	TG.ServerObject.apply(this, arguments);
-	setType(this, 'TG.DataObject');
-}; // TG.BaseObject
-
-
-TG.DataObjectReference = function() {
-	TG.ServerObject.apply(this, arguments);
-	setType(this, 'TG.DataObjectReference');
-}; // TG.DataObjectReference
-
-
 TG.FunctionReference = function() {
 	var rv = function() {
 		var method;
@@ -636,8 +595,8 @@ TG.FunctionReference = function() {
 	return rv;
 }; // TG.FunctionReference()
 
-TG.Value = function(v) {
 
+TG.Value = function(v) {
 	var value = undefined;
 
 	this.valueOf = function() {
@@ -654,5 +613,4 @@ TG.Value = function(v) {
 	}
 
 	setType(this, 'TG.Value');
-
 }; // TG.Value()

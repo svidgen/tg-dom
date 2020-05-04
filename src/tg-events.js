@@ -1,3 +1,6 @@
+require('tg-observe.js');
+require('tg-upon.js');
+
 TG.Event = function (singleFire, o, a) {
 
 	this.target = o;

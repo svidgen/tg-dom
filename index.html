@@ -1,23 +1,24 @@
 <!doctype html>
 <html>
 	<head>
-		<title>tg-dom tests</title>
-		<style type='text/css'>
-			@import url('vendor/qunit-1-23-1.css');
-		</style>
+		<title>tg-dom</title>
 	</head>
 	<body>
-		<div id='qunit'></div>
-		<div id='qunit-fixture'></div>
-		<script type='text/javascript' src='dist/tg-all.js'></script>
-		<script type='text/javascript' src='vendor/qunit-1-23-1.js'></script>
-		<script type='text/javascript'>
-			QUnit.config.testTimeout = 10000;
-			var assertions = [];
-			QUnit.log(function(assertion) {
-				assertions.push(assertion);
-			});
-		</script>
-		<script type='text/javascript' src='dist/tests.js'></script>
+		<h2>Distributions</h2>
+
+		<h4>
+			tg-core.js
+			( <a href='dist/tg-core.js'>lib</a>
+			| <a href='dist/tg-core-min.js'>minified</a> )
+		</h4>
+		<div>Contains all essential DOM, API, and Event/Promise-related libs.</div>
+
+		<h4>
+			tg-all.js
+			( <a href='dist/tg-all.js'>lib</a>
+			| <a href='dist/tg-all-min.js'>minified</a>
+			| <a href='test-tg-all.html'>tests</a> )
+		</h4>
+		<div>Contains tg-core + dragdrop, color, utils, etc.</div>
 	</body>
 </html>
